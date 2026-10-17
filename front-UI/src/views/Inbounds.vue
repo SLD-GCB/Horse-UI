@@ -2,10 +2,7 @@
   <div class="page">
     <div class="page-header">
       <div class="page-title">入站管理</div>
-      <div>
-        <el-button @click="openBatch">批量新建</el-button>
-        <el-button type="primary" @click="openCreate">新增入站</el-button>
-      </div>
+      <el-button type="primary" @click="openCreate">新建入站</el-button>
     </div>
 
     <!-- 批量操作栏（选中后出现） -->
@@ -147,6 +144,12 @@
                 <el-form-item label="TCP Fast Open">
                   <el-switch v-model="form.tfo" active-text="开启" />
                   <span class="hint">握手省一次 RTT，高延迟线路有感；需客户端也支持</span>
+                </el-form-item>
+              </el-col>
+              <el-col v-if="!form.id" :span="12">
+                <el-form-item label="创建数量">
+                  <el-input-number v-model="form.count" :min="1" :max="50" style="width: 140px" />
+                  <span class="hint">1 = 单条；填 N = 按这份配置批量建 N 条（端口顺延、标识加序号）</span>
                 </el-form-item>
               </el-col>
             </el-row>
@@ -620,49 +623,6 @@
       </template>
     </el-dialog>
 
-    <!-- 批量新建入站 -->
-    <el-dialog v-model="batchDialog" title="批量新建入站" width="640px">
-      <el-form label-width="110px">
-        <el-form-item label="协议">
-          <el-checkbox-group v-model="batchForm.types">
-            <el-checkbox v-for="t in typeOptions" :key="t.value" :label="t.value">{{ t.label }}</el-checkbox>
-          </el-checkbox-group>
-          <div class="hint">每种协议创建一条；端口、密码、UUID 全部自动生成。</div>
-        </el-form-item>
-        <el-form-item label="起始端口">
-          <el-input-number
-            v-model="batchForm.port_start"
-            :min="1"
-            :max="65535"
-            style="width: 180px"
-            placeholder="留空自动分配"
-          />
-          <div class="hint">留空=从端口池自动挑空闲端口；填了就从这个端口开始连续分配。</div>
-        </el-form-item>
-        <el-form-item label="标识前缀">
-          <el-input v-model="batchForm.tag_prefix" placeholder="如 hk，留空自动用「协议-端口」" />
-        </el-form-item>
-        <el-form-item label="证书">
-          <el-select
-            v-model="batchForm.cert_id"
-            clearable
-            style="width: 320px"
-            placeholder="除 Shadowsocks 外都需要证书"
-          >
-            <el-option v-for="c in certs" :key="c.id" :label="`${c.domain}（${c.kind}）`" :value="c.id" />
-          </el-select>
-          <div class="hint">只作用于需要 TLS 的协议，Shadowsocks 会自动跳过。</div>
-        </el-form-item>
-        <el-form-item label="弱网预置">
-          <el-switch v-model="batchForm.weak_net" />
-          <span class="hint">Hysteria2 开混淆、TUIC 用 bbr、TCP 系开 TCP Fast Open。</span>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="batchDialog = false">取消</el-button>
-        <el-button type="primary" :loading="batchSaving" @click="submitBatch">创建</el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
@@ -686,15 +646,6 @@ const activeSections = ref<string[]>(['basic', 'proto'])
 // ---- 批量新建 / 批量操作 ----
 const tableRef = ref()
 const selected = ref<Inbound[]>([])
-const batchDialog = ref(false)
-const batchSaving = ref(false)
-const batchForm = reactive({
-  types: ['vless', 'trojan', 'hysteria2'] as string[],
-  port_start: undefined as number | undefined,
-  tag_prefix: '',
-  cert_id: null as number | null,
-  weak_net: true,
-})
 
 function onSelect(list: Inbound[]) {
   selected.value = list
@@ -702,53 +653,6 @@ function onSelect(list: Inbound[]) {
 
 function clearSelection() {
   tableRef.value?.clearSelection()
-}
-
-function openBatch() {
-  batchForm.types = ['vless', 'trojan', 'hysteria2']
-  batchForm.port_start = undefined
-  batchForm.tag_prefix = ''
-  batchForm.weak_net = true
-  const pick = certs.value.find((c) => c.kind === 'selfsigned') || certs.value[0]
-  batchForm.cert_id = pick ? pick.id : null
-  batchDialog.value = true
-}
-
-async function submitBatch() {
-  if (!batchForm.types.length) {
-    ElMessage.warning('请至少选择一种协议')
-    return
-  }
-  batchSaving.value = true
-  try {
-    const res = await api.post<{
-      created: number
-      errors?: { target: string; message: string }[]
-      apply_error?: string
-    }>('/api/inbounds/batch-create', {
-      types: batchForm.types,
-      port_start: batchForm.port_start || 0,
-      tag_prefix: batchForm.tag_prefix.trim(),
-      listen: '',
-      cert_id: batchForm.cert_id || 0,
-      weak_net: batchForm.weak_net,
-    })
-    const errs = res.errors || []
-    if (errs.length) {
-      ElMessage.warning(
-        `已创建 ${res.created} 条，${errs.length} 条失败：` +
-          errs.map((e) => `${e.target}（${e.message}）`).join('；'),
-      )
-    } else if (res.apply_error) {
-      ElMessage.warning(`已创建 ${res.created} 条，但内核应用失败：${res.apply_error}`)
-    } else {
-      ElMessage.success(`已创建 ${res.created} 条入站`)
-    }
-    batchDialog.value = false
-    await load()
-  } finally {
-    batchSaving.value = false
-  }
 }
 
 async function batchOp(action: 'enable' | 'disable' | 'delete') {
@@ -891,6 +795,7 @@ function defaultForm() {
     reality_max_diff: '',
 
     // 其它
+    count: 1,
     extra_raw: '',
   }
 }
@@ -1509,6 +1414,31 @@ async function save() {
   saving.value = true
   try {
     const payload = buildPayload()
+    const count = form.count || 1
+
+    // 批量：用当前这份完整配置建 N 条（端口顺延、标识加序号）
+    if (!form.id && count > 1) {
+      const res = await api.post<{
+        created?: number
+        errors?: { target: string; message: string }[]
+        apply_error?: string
+      }>('/api/inbounds/batch-clone', { inbound: payload, count })
+      const errs = res.errors || []
+      if (errs.length) {
+        ElMessage.warning(
+          `已创建 ${res.created || 0} 条，${errs.length} 条失败：` +
+            errs.map((e) => `${e.target}（${e.message}）`).join('；'),
+        )
+      } else if (res.apply_error) {
+        ElMessage.warning(`已创建 ${count} 条，但内核应用失败：${res.apply_error}`)
+      } else {
+        ElMessage.success(`已按同一份配置创建 ${count} 条入站`)
+      }
+      dialog.value = false
+      await load()
+      return
+    }
+
     const res = form.id
       ? await api.put<{ apply_error?: string }>(`/api/inbounds/${form.id}`, payload)
       : await api.post<{ apply_error?: string }>('/api/inbounds', payload)

@@ -9,7 +9,6 @@ import (
 	"horseui/back-machine/internal/model"
 	"horseui/back-machine/internal/svc"
 	"horseui/back-machine/internal/sysinfo"
-	"horseui/back-machine/internal/util"
 )
 
 // batchErr 批量操作里单条的失败信息。
@@ -52,106 +51,68 @@ func (a *App) pickFreePorts(start, n int) ([]int, error) {
 	return out, nil
 }
 
-// batchCreateInbounds 按协议组合一次性创建多条入站。
-// 采用「逐条创建 + 汇总失败原因」的方式：某一条失败不影响其他条，方便部分成功后再补。
-func (a *App) batchCreateInbounds(c *gin.Context) {
+// batchCloneInbound 用同一份完整入站配置创建 N 条。
+// 模板来自「新增入站」的完整表单，
+// 所以 TLS / Reality / 传输 / 协议选项（包括高级 JSON）都会一并复制，只是端口顺延、标识加序号。
+func (a *App) batchCloneInbound(c *gin.Context) {
 	var req struct {
-		Types     []string `json:"types"`
-		PortStart int      `json:"port_start"`
-		TagPrefix string   `json:"tag_prefix"`
-		Listen    string   `json:"listen"`
-		CertID    *uint    `json:"cert_id"`
-		WeakNet   bool     `json:"weak_net"`
+		Inbound model.Inbound `json:"inbound"`
+		Count   int           `json:"count"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		badRequest(c, err.Error())
 		return
 	}
 
-	// 去重并过滤空值。
-	types := make([]string, 0, len(req.Types))
-	seen := map[string]bool{}
-	for _, t := range req.Types {
-		t = strings.TrimSpace(t)
-		if t == "" || seen[t] {
-			continue
-		}
-		seen[t] = true
-		types = append(types, t)
+	count := req.Count
+	if count <= 0 {
+		count = 1
 	}
-	if len(types) == 0 {
-		badRequest(c, "请至少选择一种协议")
-		return
-	}
-	if len(types) > 20 {
-		badRequest(c, "一次最多创建 20 条入站")
+	if count > 50 {
+		badRequest(c, "一次最多创建 50 条入站")
 		return
 	}
 
-	var cert model.Certificate
-	if req.CertID != nil && *req.CertID > 0 {
-		if err := a.db.First(&cert, *req.CertID).Error; err != nil {
-			badRequest(c, "所选证书不存在")
-			return
-		}
+	tpl := req.Inbound
+	if strings.TrimSpace(tpl.Type) == "" {
+		badRequest(c, "请选择协议类型")
+		return
+	}
+	if tpl.Port <= 0 || tpl.Port > 65535 {
+		badRequest(c, "请填写有效端口")
+		return
 	}
 
-	ports, err := a.pickFreePorts(req.PortStart, len(types))
+	ports, err := a.pickFreePorts(tpl.Port, count)
 	if err != nil {
 		badRequest(c, err.Error())
 		return
 	}
 
-	prefix := strings.TrimSpace(req.TagPrefix)
-	created := make([]model.Inbound, 0, len(types))
+	baseTag := strings.TrimSpace(tpl.Tag)
+	if baseTag == "" {
+		baseTag = fmt.Sprintf("%s-%d", tpl.Type, tpl.Port)
+	}
+
+	created := make([]model.Inbound, 0, count)
 	var errs []batchErr
 
-	for i, tp := range types {
-		ib := model.Inbound{
-			Type:   tp,
-			Enable: true,
-			Listen: req.Listen,
-			Port:   ports[i],
-			Sniff:  true,
-			Remark: "批量创建",
-		}
-		if ib.Listen == "" {
-			ib.Listen = "::"
-		}
-		if prefix != "" {
-			ib.Tag = prefix + "-" + tp
-		}
-
-		// 统一证书：除 Shadowsocks 外都必须有 TLS（或 Reality）。
-		if tp != model.ProtoShadowsocks && req.CertID != nil && *req.CertID > 0 {
-			ib.CertID = req.CertID
-			ib.Insecure = cert.Kind == model.CertKindSelfSigned
-			if cert.Domain != "" {
-				ib.TLS = model.JSONText(fmt.Sprintf(`{"enabled":true,"server_name":%q}`, cert.Domain))
-			} else {
-				ib.TLS = model.JSONText(`{"enabled":true}`)
-			}
-		}
-
-		// 弱网预置：只做该协议真正有效的项。
-		if req.WeakNet {
-			switch tp {
-			case model.ProtoHysteria2:
-				ib.ObfsType = "salamander"
-				ib.ObfsPassword = util.RandomAlnum(20)
-			case model.ProtoTUIC:
-				ib.CongestionControl = "bbr"
-			case model.ProtoVLESS, model.ProtoVMess, model.ProtoTrojan:
-				ib.Extra = model.JSONText(`{"tcp_fast_open":true}`)
-			}
+	for i := 0; i < count; i++ {
+		ib := tpl
+		ib.ID = 0
+		ib.Port = ports[i]
+		if count > 1 {
+			ib.Tag = fmt.Sprintf("%s-%d", baseTag, i+1)
+		} else {
+			ib.Tag = baseTag
 		}
 
 		if err := a.prepareInbound(&ib); err != nil {
-			errs = append(errs, batchErr{Target: tp, Message: err.Error()})
+			errs = append(errs, batchErr{Target: ib.Tag, Message: err.Error()})
 			continue
 		}
 		if err := a.db.Create(&ib).Error; err != nil {
-			errs = append(errs, batchErr{Target: tp, Message: err.Error()})
+			errs = append(errs, batchErr{Target: ib.Tag, Message: err.Error()})
 			continue
 		}
 		created = append(created, ib)

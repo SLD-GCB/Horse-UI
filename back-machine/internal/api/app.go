@@ -176,7 +176,7 @@ func (a *App) routes() {
 		auth.GET("/inbounds", a.listInbounds)
 		auth.POST("/inbounds", a.createInbound)
 		// 批量：按协议组合一次性建多条 / 多选批量操作
-		auth.POST("/inbounds/batch-create", a.batchCreateInbounds)
+		auth.POST("/inbounds/batch-clone", a.batchCloneInbound)
 		auth.POST("/inbounds/batch-op", a.batchInboundOp)
 		auth.POST("/inbounds/:id/test", a.testInbound)
 		auth.GET("/inbounds/:id", a.getInbound)
