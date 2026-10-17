@@ -1,0 +1,19 @@
+[Unit]
+Description=HorseUI sing-box proxy panel
+Documentation=https://github.com/
+After=network.target nss-lookup.target
+
+[Service]
+Type=simple
+WorkingDirectory=/etc/horseui
+ExecStart=/usr/local/horseui/horseui -run -data /etc/horseui -listen 0.0.0.0:8080
+Restart=on-failure
+RestartSec=3
+LimitNOFILE=1048576
+LimitNPROC=1048576
+# 面板需要管理 sing-box 子进程与监听端口
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+
+[Install]
+WantedBy=multi-user.target
