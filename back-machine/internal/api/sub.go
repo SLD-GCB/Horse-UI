@@ -136,21 +136,11 @@ func (a *App) clientLinks(c *gin.Context) {
 	mask := a.behaviorMask()
 	links := svc.BuildShareLinks(server, ibs, cl)
 
-	// 三种配置各生成一个二维码。完整配置可能超过二维码容量，
-	// 所以逐级降低纠错等级；仍放不下就留空，前端会提示改用复制/订阅。
-	clashCfg := svc.BuildClashConfig(server, ibs, cl, mask)
-	singboxCfg := svc.BuildSingboxClientConfig(server, ibs, cl, mask)
-
-	clashText := ""
-	if clashCfg != nil {
-		if b, err := yaml.Marshal(clashCfg); err == nil {
-			clashText = string(b)
-		}
-	}
-	singboxText := ""
-	if singboxCfg != nil {
-		if b, err := json.MarshalIndent(singboxCfg, "", "  "); err == nil {
-			singboxText = string(b)
+	// 二维码只承载第一个节点（一个二维码放不下多个节点，多节点请用订阅地址）。
+	qr := ""
+	if len(links) > 0 {
+		if png, err := qrcode.Encode(links[0], qrcode.Medium, 256); err == nil {
+			qr = "data:image/png;base64," + base64.StdEncoding.EncodeToString(png)
 		}
 	}
 
@@ -159,29 +149,10 @@ func (a *App) clientLinks(c *gin.Context) {
 		"links":   links,
 		"nodes":   len(links),
 		"sub_url": a.subURL(c, cl),
-		"qrcodes": gin.H{
-			// 通用：多行分享链接（客户端可直接识别全部节点）
-			"general": qrDataURL(strings.Join(links, "\n")),
-			"clash":   qrDataURL(clashText),
-			"singbox": qrDataURL(singboxText),
-		},
-		"clash":   clashCfg,
-		"singbox": singboxCfg,
+		"qrcode":  qr,
+		"clash":   svc.BuildClashConfig(server, ibs, cl, mask),
+		"singbox": svc.BuildSingboxClientConfig(server, ibs, cl, mask),
 	})
-}
-
-// qrDataURL 把文本编码为 PNG data URL。内容过长时先降纠错等级，仍失败返回空串。
-func qrDataURL(text string) string {
-	if strings.TrimSpace(text) == "" {
-		return ""
-	}
-	for _, level := range []qrcode.RecoveryLevel{qrcode.Medium, qrcode.Low} {
-		png, err := qrcode.Encode(text, level, 560)
-		if err == nil {
-			return "data:image/png;base64," + base64.StdEncoding.EncodeToString(png)
-		}
-	}
-	return ""
 }
 
 // handleSubscription 订阅分发端点（无需鉴权）。

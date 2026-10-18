@@ -6,6 +6,7 @@
         <el-select v-model="filterInbound" clearable placeholder="按入站筛选" style="width: 200px; margin-right: 8px" @change="load">
           <el-option v-for="ib in inbounds" :key="ib.id" :label="`${ib.tag} (${ib.type})`" :value="ib.id" />
         </el-select>
+        <el-button @click="openBatch">批量新增</el-button>
         <el-button type="primary" @click="openCreate">新增用户</el-button>
       </div>
     </div>
@@ -123,26 +124,88 @@
       </template>
     </el-dialog>
 
+    <el-dialog v-model="batchDialog" title="批量新增用户" width="620px">
+      <el-form :model="batchForm" label-width="110px">
+        <el-form-item label="所属入站">
+          <el-select v-model="batchForm.inbound_id" style="width: 100%">
+            <el-option
+              v-for="ib in inbounds"
+              :key="ib.id"
+              :label="`${ib.tag} (${ib.type})`"
+              :value="ib.id"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="额外绑定入站">
+          <el-select
+            v-model="batchForm.inbound_ids"
+            multiple
+            clearable
+            style="width: 100%"
+            placeholder="可再绑定其他入站，流量合并统计"
+          >
+            <el-option
+              v-for="ib in batchBindableInbounds"
+              :key="ib.id"
+              :label="`${ib.tag} (${ib.type})`"
+              :value="ib.id"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="创建数量">
+          <el-input-number v-model="batchForm.count" :min="1" :max="200" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="用户名前缀">
+          <el-input v-model="batchForm.name_prefix" placeholder="user-" />
+          <div class="hint">按「前缀 + 编号」生成，例如 user-01、user-02</div>
+        </el-form-item>
+        <el-form-item label="起始编号">
+          <el-input-number v-model="batchForm.name_start" :min="0" :max="999999" style="width: 100%" />
+          <div class="hint">0 表示接着同前缀的已有最大编号继续</div>
+        </el-form-item>
+        <el-form-item v-if="batchNeedFlow" label="Flow">
+          <el-select v-model="batchForm.flow" clearable style="width: 100%">
+            <el-option label="无" value="" />
+            <el-option label="xtls-rprx-vision" value="xtls-rprx-vision" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="流量配额 (GB)">
+          <el-input-number v-model="batchForm.quota_gb" :min="0" :precision="2" style="width: 100%" />
+          <div class="hint">0 表示不限流量，每个用户独立计算</div>
+        </el-form-item>
+        <el-form-item label="到期时间">
+          <el-date-picker
+            v-model="batchForm.expire"
+            type="datetime"
+            placeholder="留空表示永不过期"
+            style="width: 100%"
+            clearable
+          />
+        </el-form-item>
+        <el-form-item label="备注">
+          <el-input v-model="batchForm.remark" />
+        </el-form-item>
+        <el-form-item label="启用">
+          <el-switch v-model="batchForm.enable" />
+        </el-form-item>
+      </el-form>
+      <div class="batch-preview">将创建 {{ batchForm.count }} 个用户：{{ batchPreview }}</div>
+      <template #footer>
+        <el-button @click="batchDialog = false">取消</el-button>
+        <el-button type="primary" :loading="batchSaving" @click="saveBatch">批量创建并应用</el-button>
+      </template>
+    </el-dialog>
+
     <el-dialog v-model="linkDialog" title="分享与订阅" width="680px">
       <div v-if="links">
         <el-row :gutter="16">
           <el-col :span="9">
-            <div v-for="q in qrList" :key="q.key" class="qr-item">
-              <div class="qr-label">{{ q.label }}</div>
-              <div class="qr-box">
-                <el-image
-                  v-if="q.data"
-                  :src="q.data"
-                  :preview-src-list="[q.data]"
-                  preview-teleported
-                  fit="contain"
-                  class="qr-img"
-                />
-                <div v-else class="qr-empty">配置过大<br />无法生成二维码<br />请用复制 / 订阅链接</div>
-              </div>
+            <div class="qr-box">
+              <img v-if="links.qrcode" :src="links.qrcode" alt="qrcode" />
             </div>
-            <div class="qr-hint">点击二维码可放大扫码</div>
-            <div v-if="links.nodes > 1" class="qr-hint">共 {{ links.nodes }} 个节点</div>
+            <div v-if="links.nodes > 1" class="qr-hint">
+              共 {{ links.nodes }} 个节点<br />二维码仅含第 1 个
+            </div>
           </el-col>
           <el-col :span="15">
             <el-form label-width="110px">
@@ -205,20 +268,12 @@ const inbounds = ref<Inbound[]>([])
 const filterInbound = ref<number | undefined>(undefined)
 const dialog = ref(false)
 const saving = ref(false)
+const batchDialog = ref(false)
+const batchSaving = ref(false)
 const linkDialog = ref(false)
 const links = ref<ClientLinks | null>(null)
 const clashText = ref('')
 const singboxText = ref('')
-
-/** 三个二维码：通用（多行分享链接）/ Clash YAML / sing-box JSON。 */
-const qrList = computed(() => {
-  const q = links.value?.qrcodes
-  return [
-    { key: 'general', label: '通用（分享链接）', data: q?.general || '' },
-    { key: 'clash', label: 'Clash / Mihomo', data: q?.clash || '' },
-    { key: 'singbox', label: 'sing-box', data: q?.singbox || '' },
-  ]
-})
 
 const form = reactive({
   id: 0,
@@ -234,11 +289,39 @@ const form = reactive({
   remark: '',
 })
 
+const batchForm = reactive({
+  inbound_id: 0,
+  inbound_ids: [] as number[],
+  count: 10,
+  name_prefix: 'user-',
+  name_start: 0,
+  flow: '',
+  quota_gb: 0,
+  expire: null as Date | null,
+  enable: true,
+  remark: '',
+})
+
 const formType = computed(() => inbounds.value.find((i) => i.id === form.inbound_id)?.type || '')
 const currentInbound = computed(() => inbounds.value.find((i) => i.id === form.inbound_id))
 const needUUID = computed(() => ['vless', 'vmess', 'tuic'].includes(formType.value))
 const needPassword = computed(() => ['trojan', 'shadowsocks', 'tuic', 'hysteria2', 'http'].includes(formType.value))
 const bindableInbounds = computed(() => inbounds.value.filter((ib) => ib.id !== form.inbound_id))
+const batchType = computed(() => inbounds.value.find((i) => i.id === batchForm.inbound_id)?.type || '')
+const batchNeedFlow = computed(() => batchType.value === 'vless')
+const batchBindableInbounds = computed(() =>
+  inbounds.value.filter((ib) => ib.id !== batchForm.inbound_id),
+)
+const batchPreview = computed(() => {
+  const count = Math.max(1, Math.min(batchForm.count || 1, 200))
+  const prefix = batchForm.name_prefix || 'user-'
+  if (!batchForm.name_start) return `${prefix}（自动接续已有编号）`
+  const start = batchForm.name_start
+  const width = Math.max(2, String(start + count - 1).length)
+  const first = `${prefix}${String(start).padStart(width, '0')}`
+  const last = `${prefix}${String(start + count - 1).padStart(width, '0')}`
+  return count > 1 ? `${first} … ${last}` : first
+})
 
 function inboundTag(id: number): string {
   const ib = inbounds.value.find((i) => i.id === id)
@@ -274,6 +357,61 @@ function openCreate() {
   })
   dialog.value = true
   void fillSecrets()
+}
+
+function openBatch() {
+  if (!inbounds.value.length) {
+    ElMessage.warning('请先创建入站')
+    return
+  }
+  Object.assign(batchForm, {
+    inbound_id: inbounds.value[0].id,
+    inbound_ids: [],
+    count: 10,
+    name_prefix: 'user-',
+    name_start: 0,
+    flow: '',
+    quota_gb: 0,
+    expire: null,
+    enable: true,
+    remark: '',
+  })
+  batchDialog.value = true
+}
+
+async function saveBatch() {
+  if (!batchForm.inbound_id) {
+    ElMessage.warning('请选择入站')
+    return
+  }
+  if (batchForm.count < 1 || batchForm.count > 200) {
+    ElMessage.warning('单次创建数量需在 1-200 之间')
+    return
+  }
+  batchSaving.value = true
+  try {
+    const res = await api.post<{ count?: number; apply_error?: string }>('/api/clients/batch', {
+      inbound_id: batchForm.inbound_id,
+      inbound_ids: batchForm.inbound_ids,
+      count: batchForm.count,
+      name_prefix: batchForm.name_prefix.trim(),
+      name_start: batchForm.name_start,
+      flow: batchForm.flow,
+      quota_bytes: Math.round((batchForm.quota_gb || 0) * 1024 ** 3),
+      expire_at: batchForm.expire ? batchForm.expire.toISOString() : null,
+      enable: batchForm.enable,
+      remark: batchForm.remark,
+    })
+    if (res.apply_error) {
+      ElMessage.warning(`已创建 ${res.count || batchForm.count} 个用户，但内核应用失败：${res.apply_error}`)
+    } else {
+      ElMessage.success(`已创建 ${res.count || batchForm.count} 个用户并应用`)
+    }
+    batchDialog.value = false
+    await load()
+  } finally {
+    batchSaving.value = false
+  }
 }
 
 // onInboundChange 切换协议后清空旧凭据，并按新协议自动补全。
@@ -426,49 +564,19 @@ onMounted(async () => {
   color: #909399;
 }
 
+.batch-preview {
+  margin: 0 0 4px 110px;
+  font-size: 12px;
+  color: #606266;
+  word-break: break-all;
+}
+
 .qr-hint {
   margin-top: 6px;
   font-size: 12px;
   color: #909399;
   text-align: center;
   line-height: 1.5;
-}
-
-/* ---- 三种配置的二维码 ---- */
-.qr-item {
-  text-align: center;
-  margin-bottom: 10px;
-}
-
-.qr-label {
-  font-size: 12px;
-  color: #606266;
-  margin-bottom: 4px;
-}
-
-.qr-box {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.qr-img {
-  width: 132px;
-  height: 132px;
-  cursor: zoom-in;
-}
-
-.qr-empty {
-  width: 132px;
-  height: 132px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  line-height: 1.5;
-  color: #c0c4cc;
-  border: 1px dashed #dcdfe6;
-  border-radius: 4px;
 }
 
 .tab-actions {

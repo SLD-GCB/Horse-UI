@@ -2,21 +2,10 @@
   <div class="page">
     <div class="page-header">
       <div class="page-title">入站管理</div>
-      <el-button type="primary" @click="openCreate">新建入站</el-button>
+      <el-button type="primary" @click="openCreate">新增入站</el-button>
     </div>
 
-    <!-- 批量操作栏（选中后出现） -->
-    <div v-if="selected.length" class="batch-bar">
-      <span class="batch-count">已选 {{ selected.length }} 条</span>
-      <el-button size="small" @click="batchOp('enable')">批量启用</el-button>
-      <el-button size="small" @click="batchOp('disable')">批量停用</el-button>
-      <el-button size="small" @click="batchRenumber">重排端口</el-button>
-      <el-button size="small" type="danger" @click="batchOp('delete')">批量删除</el-button>
-      <el-button size="small" link @click="clearSelection">取消选择</el-button>
-    </div>
-
-    <el-table ref="tableRef" :data="rows" border stripe row-key="id" @selection-change="onSelect">
-      <el-table-column type="selection" width="46" />
+    <el-table :data="rows" border stripe>
       <el-table-column prop="id" label="ID" width="70" />
       <el-table-column prop="tag" label="标识" min-width="130" />
       <el-table-column prop="type" label="协议" width="110" />
@@ -146,10 +135,28 @@
                   <span class="hint">握手省一次 RTT，高延迟线路有感；需客户端也支持</span>
                 </el-form-item>
               </el-col>
-              <el-col v-if="!form.id" :span="12">
-                <el-form-item label="创建数量">
-                  <el-input-number v-model="form.count" :min="1" :max="50" style="width: 140px" />
-                  <span class="hint">1 = 单条；填 N = 按这份配置批量建 N 条（端口顺延、标识加序号）</span>
+              <el-col v-if="!form.id" :span="24">
+                <el-form-item label="批量创建">
+                  <el-switch v-model="form.batch_enabled" active-text="按当前配置创建多个" />
+                  <template v-if="form.batch_enabled">
+                    <el-input-number
+                      v-model="form.batch_count"
+                      :min="2"
+                      :max="100"
+                      style="width: 110px; margin-left: 12px"
+                    />
+                    <span class="hint" style="display: inline">个，端口步长</span>
+                    <el-input-number
+                      v-model="form.batch_step"
+                      :min="1"
+                      :max="1000"
+                      style="width: 110px; margin-left: 8px"
+                    />
+                  </template>
+                  <div v-if="form.batch_enabled" class="hint">
+                    标识可用 <code>{n}</code> 占位（如 node-{n}），留空按「协议-端口」自动生成。
+                    将创建：{{ batchPreview }}
+                  </div>
                 </el-form-item>
               </el-col>
             </el-row>
@@ -622,7 +629,6 @@
         <el-button type="primary" :loading="saving" @click="save">保存并应用</el-button>
       </template>
     </el-dialog>
-
   </div>
 </template>
 
@@ -642,51 +648,6 @@ const dialog = ref(false)
 const saving = ref(false)
 const realityPublicKey = ref('')
 const activeSections = ref<string[]>(['basic', 'proto'])
-
-// ---- 批量新建 / 批量操作 ----
-const tableRef = ref()
-const selected = ref<Inbound[]>([])
-
-function onSelect(list: Inbound[]) {
-  selected.value = list
-}
-
-function clearSelection() {
-  tableRef.value?.clearSelection()
-}
-
-async function batchOp(action: 'enable' | 'disable' | 'delete') {
-  const ids = selected.value.map((r) => r.id)
-  if (!ids.length) return
-  if (action === 'delete') {
-    await ElMessageBox.confirm(`确认删除选中的 ${ids.length} 个入站？其下的用户会一并删除。`, '提示', {
-      type: 'warning',
-    })
-  }
-  await api.post('/api/inbounds/batch-op', { ids, action })
-  ElMessage.success('已执行')
-  clearSelection()
-  await load()
-}
-
-async function batchRenumber() {
-  const ids = selected.value.map((r) => r.id)
-  if (!ids.length) return
-  let start = 0
-  try {
-    const { value } = await ElMessageBox.prompt('从哪个端口开始顺序重排？（留空=自动分配）', '批量重排端口', {
-      inputPattern: /^\d*$/,
-      inputErrorMessage: '只能填数字',
-    })
-    start = Number(value || 0)
-  } catch {
-    return
-  }
-  await api.post('/api/inbounds/batch-op', { ids, action: 'renumber', port_start: start })
-  ElMessage.success('端口已重排（标识不变）')
-  clearSelection()
-  await load()
-}
 
 const presets = ref<Presets>({
   ss_methods: [],
@@ -795,8 +756,12 @@ function defaultForm() {
     reality_max_diff: '',
 
     // 其它
-    count: 1,
     extra_raw: '',
+
+    // 批量创建（仅新增时生效）
+    batch_enabled: false,
+    batch_count: 5,
+    batch_step: 1,
   }
 }
 
@@ -841,6 +806,24 @@ const certSource = computed({
 })
 
 const preview = computed(() => JSON.stringify(buildPayload(), null, 2))
+
+/** 批量创建预览：前几个标识 + 端口区间，和后端生成规则保持一致。 */
+const batchPreview = computed(() => {
+  const count = Math.max(2, Math.min(form.batch_count || 2, 100))
+  const step = Math.max(1, form.batch_step || 1)
+  const baseTag = form.tag.trim()
+  const tagAt = (i: number) => {
+    if (!baseTag) {
+      const port = form.port + (i - 1) * step
+      return `${form.type}-${port}`
+    }
+    return baseTag.includes('{n}') ? baseTag.replaceAll('{n}', String(i)) : `${baseTag}-${i}`
+  }
+  const shown = [1, 2, 3].slice(0, count).map(tagAt)
+  const ellipsis = count > 3 ? ' … ' : ''
+  const lastPort = form.port + (count - 1) * step
+  return `${shown.join('、')}${ellipsis}（端口 ${form.port}–${lastPort}）`
+})
 
 /** 本机可用监听地址（网卡地址 + 全部地址） */
 const listenAddresses = computed(() => {
@@ -1411,41 +1394,36 @@ async function save() {
     }
   }
 
+  const batch = !form.id && form.batch_enabled && form.batch_count > 1
+  const step = Math.max(1, form.batch_step || 1)
+  if (batch && form.port + (form.batch_count - 1) * step > 65535) {
+    ElMessage.warning('批量创建的最后一个端口超出 65535，请减小数量或步长')
+    return
+  }
+
   saving.value = true
   try {
     const payload = buildPayload()
-    const count = form.count || 1
-
-    // 批量：用当前这份完整配置建 N 条（端口顺延、标识加序号）
-    if (!form.id && count > 1) {
-      const res = await api.post<{
-        created?: number
-        errors?: { target: string; message: string }[]
-        apply_error?: string
-      }>('/api/inbounds/batch-clone', { inbound: payload, count })
-      const errs = res.errors || []
-      if (errs.length) {
-        ElMessage.warning(
-          `已创建 ${res.created || 0} 条，${errs.length} 条失败：` +
-            errs.map((e) => `${e.target}（${e.message}）`).join('；'),
-        )
-      } else if (res.apply_error) {
-        ElMessage.warning(`已创建 ${count} 条，但内核应用失败：${res.apply_error}`)
+    if (batch) {
+      const res = await api.post<{ count?: number; apply_error?: string }>('/api/inbounds/batch', {
+        ...payload,
+        count: form.batch_count,
+        port_step: step,
+      })
+      if (res.apply_error) {
+        ElMessage.warning(`已创建 ${res.count || form.batch_count} 个入站，但内核应用失败：${res.apply_error}`)
       } else {
-        ElMessage.success(`已按同一份配置创建 ${count} 条入站`)
+        ElMessage.success(`已创建 ${res.count || form.batch_count} 个入站并应用`)
       }
-      dialog.value = false
-      await load()
-      return
-    }
-
-    const res = form.id
-      ? await api.put<{ apply_error?: string }>(`/api/inbounds/${form.id}`, payload)
-      : await api.post<{ apply_error?: string }>('/api/inbounds', payload)
-    if (res.apply_error) {
-      ElMessage.warning(`已保存，但内核应用失败：${res.apply_error}`)
     } else {
-      ElMessage.success('已保存并应用')
+      const res = form.id
+        ? await api.put<{ apply_error?: string }>(`/api/inbounds/${form.id}`, payload)
+        : await api.post<{ apply_error?: string }>('/api/inbounds', payload)
+      if (res.apply_error) {
+        ElMessage.warning(`已保存，但内核应用失败：${res.apply_error}`)
+      } else {
+        ElMessage.success('已保存并应用')
+      }
     }
     dialog.value = false
     await load()
@@ -1539,24 +1517,5 @@ onMounted(async () => {
 
 .weak-modes-warn {
   color: #e6a23c;
-}
-
-/* ---- 批量操作栏 ---- */
-.batch-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  margin-bottom: 10px;
-  background: #f0f9eb;
-  border: 1px solid #e1f3d8;
-  border-radius: 4px;
-}
-
-.batch-count {
-  font-size: 13px;
-  font-weight: 600;
-  color: #529b2e;
-  margin-right: 4px;
 }
 </style>

@@ -156,6 +156,31 @@
                 />
               </el-select>
             </el-form-item>
+            <el-form-item label="客户端证书指纹">
+              <div class="fp-box">
+                <span v-if="panelCert?.sha256" class="fp">
+                  {{ fingerprintVisible ? panelCert.sha256 : maskedFingerprint }}
+                </span>
+                <span v-else class="hint" style="margin-top: 0">面板证书未加载</span>
+                <el-button
+                  v-if="panelCert?.sha256"
+                  size="small"
+                  @click="fingerprintVisible = !fingerprintVisible"
+                >
+                  {{ fingerprintVisible ? '隐藏' : '显示' }}
+                </el-button>
+                <el-button v-if="panelCert?.sha256" size="small" @click="copyFingerprint">复制</el-button>
+                <el-button size="small" @click="loadPanelCert">刷新</el-button>
+              </div>
+              <div class="hint">
+                指纹默认隐藏，需要时点「显示」查看。把 SHA-256 填到 HorseBox 添加订阅时的「面板证书指纹」。
+                Windows 和 Android 填同一份，客户端只信任这张证书。
+              </div>
+              <div v-if="panelCert?.self_signed && panelCert?.not_after" class="hint">
+                自签证书，有效期至 {{ panelCert.not_after.slice(0, 10) }}；续签后指纹会变化，需要重新复制。
+              </div>
+              <div v-if="panelCert?.warning" class="hint warn">{{ panelCert.warning }}</div>
+            </el-form-item>
             <el-form-item label="明文跳转监听">
               <el-input v-model="settings.panel_http_listen" placeholder="如 0.0.0.0:80；留空则不启用" />
               <div class="hint">启用 HTTPS 后，该地址上的请求会 308 跳转到 HTTPS。</div>
@@ -323,6 +348,27 @@ const auth = useAuthStore()
 const saving = ref(false)
 const changing = ref(false)
 const certs = ref<Certificate[]>([])
+
+interface PanelCertInfo {
+  enabled: boolean
+  loaded: boolean
+  cert_id?: number
+  sha256?: string
+  subject?: string
+  issuer?: string
+  san?: string[]
+  self_signed?: boolean
+  not_before?: string
+  not_after?: string
+  warning?: string
+}
+const panelCert = ref<PanelCertInfo | null>(null)
+const fingerprintVisible = ref(false)
+const maskedFingerprint = computed(() => {
+  const value = panelCert.value?.sha256
+  if (!value) return ''
+  return value.replace(/[0-9A-Fa-f]/g, '•')
+})
 
 // ---- 系统调优（弱网优化） ----
 const tune = ref<TuneReport | null>(null)
@@ -501,6 +547,25 @@ async function loadCerts() {
   }
 }
 
+async function loadPanelCert() {
+  try {
+    panelCert.value = await api.get<PanelCertInfo>('/api/panelcert')
+  } catch {
+    panelCert.value = null
+  }
+}
+
+async function copyFingerprint() {
+  const text = panelCert.value?.sha256
+  if (!text) return
+  try {
+    await navigator.clipboard.writeText(text)
+    ElMessage.success('证书指纹已复制')
+  } catch {
+    ElMessage.error('复制失败，请手动选择复制')
+  }
+}
+
 async function save() {
   saving.value = true
   try {
@@ -534,6 +599,7 @@ async function changePwd() {
 onMounted(() => {
   load()
   loadCerts()
+  loadPanelCert()
   loadTune()
 })
 </script>
@@ -548,6 +614,24 @@ onMounted(() => {
 
 .hint.warn {
   color: #e6a23c;
+}
+
+.fp-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.fp {
+  font-family: Consolas, Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  word-break: break-all;
+  background: #f5f7fa;
+  border-radius: 4px;
+  padding: 6px 8px;
+  max-width: 520px;
 }
 
 .ab-row {

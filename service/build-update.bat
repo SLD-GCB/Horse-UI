@@ -3,16 +3,14 @@ setlocal enabledelayedexpansion
 
 REM ============================================================
 REM  HorseUI Linux 更新二进制构建脚本
-REM  用法: 双击运行，按提示输入版本号
-REM        或  build-update.bat [amd64^|arm64] [版本号]
-REM  产物: service\dist\horseui.new（用于上传）
-REM        service\dist\archive\horseui-update-<版本>-linux-<架构>.new（留档）
+REM  用法: build-update.bat [amd64^|arm64]      默认 amd64
+REM  产物: service\dist\horseui.new
 REM
 REM  为什么只是一个文件、不打包：
 REM    服务器上更新走面板菜单「更新面板」，它默认读取
 REM      /usr/local/horseui/horseui.new
 REM    然后自动停服、把旧程序备份成 horseui.old、替换、重启。
-REM    所以上传用的文件必须叫 horseui.new；版号写在二进制里，更新后面板会显示。
+REM    所以只要把新版本二进制取名成 horseui.new 即可，无需压缩包。
 REM ============================================================
 
 cd /d "%~dp0"
@@ -31,25 +29,12 @@ if /i not "%ARCH%"=="amd64" if /i not "%ARCH%"=="arm64" (
   goto :fail
 )
 
-REM ---------- 版本号 ----------
-REM 默认值取自 back-machine\main.go 的 var version；双击运行时手动输入，回车沿用默认值。
-REM 用绝对路径调 findstr，避开本机 PATH 异常导致取不到版本号。
-set "DEFVER="
-for /f "tokens=2 delims==" %%a in ('%SystemRoot%\System32\findstr.exe /r /c:"^var version" "back-machine\main.go" 2^>nul') do set "DEFVER=%%a"
-if defined DEFVER set DEFVER=%DEFVER:"=%
-if defined DEFVER set DEFVER=%DEFVER: =%
-if not defined DEFVER set "DEFVER=dev"
-
-set "VER=%~2"
-if not defined VER (
-  echo.
-  echo ============================================================
-  echo   当前源码版本: %DEFVER%
-  echo ============================================================
-  set /p "VER=请输入本次打包的版本号（直接回车沿用 %DEFVER%）: "
-)
-if not defined VER set "VER=%DEFVER%"
-set "VER=%VER: =%"
+REM ---------- 版本号: 取自 back-machine\main.go 的 var version ----------
+REM 用绝对路径调 findstr，避开本机 PATH 异常导致取不到版本号
+set "VER="
+for /f "tokens=2 delims==" %%a in ('%SystemRoot%\System32\findstr.exe /r /c:"^var version" "back-machine\main.go" 2^>nul') do set "VER=%%a"
+if defined VER set VER=%VER:"=%
+if defined VER set VER=%VER: =%
 if not defined VER set "VER=dev"
 
 echo.
@@ -100,7 +85,7 @@ set "GOARCH=%ARCH%"
 set "GOFLAGS=-mod=mod"
 set "GOPROXY=https://goproxy.cn,direct"
 set "CGO_ENABLED=0"
-go build -trimpath -ldflags "-s -w -X main.version=%VER%" -o "%OUT%" ".\back-machine"
+go build -trimpath -ldflags "-s -w" -o "%OUT%" ".\back-machine"
 if errorlevel 1 (
   echo [错误] linux/%ARCH% 编译失败
   goto :fail
@@ -118,22 +103,9 @@ if %SZ% LSS 1048576 (
   goto :fail
 )
 
-REM ---------- 留一份带版号的副本，方便回滚到指定版本 ----------
-set "ARCHDIR=%ROOT%\service\dist\archive"
-if not exist "%ARCHDIR%" mkdir "%ARCHDIR%"
-set "ARCHIVE=%ARCHDIR%\horseui-update-%VER%-linux-%ARCH%.new"
-copy /y "%OUT%" "%ARCHIVE%" >nul
-
 echo.
 echo ============================================================
-echo   构建完成
-echo.
-echo   本次版本: %VER%（已写入二进制，更新后面板显示的就是这个版本）
-echo.
-echo   上传用文件（名字不能改，菜单默认读它）：
-echo     service\dist\horseui.new
-echo   留档副本（带版号，用于回滚）：
-echo     service\dist\archive\horseui-update-%VER%-linux-%ARCH%.new
+echo   构建完成：service\dist\horseui.new   (linux/%ARCH%, 版本 %VER%)
 echo.
 echo   服务器上更新（不用解压、不用手动停服，菜单自己处理）：
 echo     1. 上传 horseui.new 到  /usr/local/horseui/

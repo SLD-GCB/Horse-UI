@@ -51,6 +51,13 @@ func (p *panelTLS) has() bool {
 	return p.cert != nil
 }
 
+// current 返回当前已加载的面板证书，供接口读取指纹。
+func (p *panelTLS) current() *tls.Certificate {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.cert
+}
+
 // GetCertificate 每次 TLS 握手读取当前证书，实现续签后免重启生效。
 func (p *panelTLS) GetCertificate(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 	p.mu.RLock()

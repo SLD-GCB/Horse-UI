@@ -11,22 +11,11 @@
           />
           <div class="btns">
             <el-button @click="openImport">从链接导入</el-button>
-            <el-button @click="openBatchImport">批量导入</el-button>
             <el-button type="primary" @click="openCreate">新增出站</el-button>
           </div>
         </div>
 
-        <!-- 批量操作栏（选中后出现） -->
-        <div v-if="selected.length" class="batch-bar">
-          <span class="batch-count">已选 {{ selected.length }} 条</span>
-          <el-button size="small" @click="batchOp('enable')">批量启用</el-button>
-          <el-button size="small" @click="batchOp('disable')">批量停用</el-button>
-          <el-button size="small" type="danger" @click="batchOp('delete')">批量删除</el-button>
-          <el-button size="small" link @click="clearSelection">取消选择</el-button>
-        </div>
-
-        <el-table ref="tableRef" :data="rows" border stripe row-key="id" @selection-change="onSelect">
-          <el-table-column type="selection" width="46" />
+        <el-table :data="rows" border stripe>
           <el-table-column prop="id" label="ID" width="60" />
           <el-table-column prop="tag" label="标识" min-width="130" />
           <el-table-column prop="type" label="类型" width="110" />
@@ -111,6 +100,35 @@
             </el-form-item>
             <el-form-item label="启用">
               <el-switch v-model="form.enable" />
+            </el-form-item>
+            <el-form-item v-if="!form.id" label="批量创建">
+              <el-switch
+                v-model="form.batch_enabled"
+                active-text="按当前配置创建多个"
+                :disabled="form.type === 'wireguard'"
+              />
+              <template v-if="form.batch_enabled">
+                <el-input-number
+                  v-model="form.batch_count"
+                  :min="2"
+                  :max="200"
+                  style="width: 110px; margin-left: 12px"
+                />
+                <span class="hint" style="display: inline">个，端口步长</span>
+                <el-input-number
+                  v-model="form.batch_step"
+                  :min="1"
+                  :max="1000"
+                  style="width: 110px; margin-left: 8px"
+                />
+              </template>
+              <div v-if="form.batch_enabled" class="hint">
+                标识可用 <code>{n}</code> 占位（如 hk-{n}），留空按「类型-端口」自动生成。
+                将创建：{{ batchPreview }}
+              </div>
+              <div v-if="form.type === 'wireguard'" class="hint">
+                WireGuard 的 peer 是固定端点，不支持批量创建。
+              </div>
             </el-form-item>
           </el-collapse-item>
 
@@ -541,23 +559,6 @@
         <el-button type="primary" @click="doImport">解析并填入表单</el-button>
       </template>
     </el-dialog>
-
-    <!-- 批量导入出站 -->
-    <el-dialog v-model="batchImportDialog" title="批量导入出站" width="640px">
-      <el-input
-        v-model="batchImportLinks"
-        type="textarea"
-        :rows="10"
-        placeholder="每行一条分享链接，支持 vless:// / vmess:// / trojan:// / ss:// / hysteria2:// / tuic://；以 # 开头的行会被忽略"
-      />
-      <div class="hint" style="margin-top: 6px">
-        逐条创建，单条失败不影响其他条；标识自动生成，重名会被跳过并在结果里提示。
-      </div>
-      <template #footer>
-        <el-button @click="batchImportDialog = false">取消</el-button>
-        <el-button type="primary" :loading="batchImporting" @click="submitBatchImport">导入</el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
@@ -600,68 +601,6 @@ const ports = ref<PortPool | null>(null)
 const active = ref<string[]>(['basic', 'proto'])
 const importDialog = ref(false)
 const importLink = ref('')
-
-// ---- 批量操作 / 批量导入 ----
-const tableRef = ref()
-const selected = ref<Outbound[]>([])
-const batchImportDialog = ref(false)
-const batchImportLinks = ref('')
-const batchImporting = ref(false)
-
-function onSelect(list: Outbound[]) {
-  selected.value = list
-}
-
-function clearSelection() {
-  tableRef.value?.clearSelection()
-}
-
-function openBatchImport() {
-  batchImportLinks.value = ''
-  batchImportDialog.value = true
-}
-
-async function submitBatchImport() {
-  if (!batchImportLinks.value.trim()) {
-    ElMessage.warning('请粘贴至少一条分享链接')
-    return
-  }
-  batchImporting.value = true
-  try {
-    const res = await api.post<{
-      created: number
-      errors?: { target: string; message: string }[]
-      apply_error?: string
-    }>('/api/outbounds/batch-import', { links: batchImportLinks.value })
-    const errs = res.errors || []
-    if (errs.length) {
-      ElMessage.warning(
-        `已导入 ${res.created} 条，${errs.length} 条失败：` +
-          errs.map((e) => `${e.target}（${e.message}）`).join('；'),
-      )
-    } else if (res.apply_error) {
-      ElMessage.warning(`已导入 ${res.created} 条，但内核应用失败：${res.apply_error}`)
-    } else {
-      ElMessage.success(`已导入 ${res.created} 条出站`)
-    }
-    batchImportDialog.value = false
-    await load()
-  } finally {
-    batchImporting.value = false
-  }
-}
-
-async function batchOp(action: 'enable' | 'disable' | 'delete') {
-  const ids = selected.value.map((r) => r.id)
-  if (!ids.length) return
-  if (action === 'delete') {
-    await ElMessageBox.confirm(`确认删除选中的 ${ids.length} 个出站？`, '提示', { type: 'warning' })
-  }
-  await api.post('/api/outbounds/batch-op', { ids, action })
-  ElMessage.success('已执行')
-  clearSelection()
-  await load()
-}
 const delays = reactive<Record<number, number>>({})
 const testing = reactive<Record<number, boolean>>({})
 
@@ -770,6 +709,11 @@ function emptyForm() {
     dial_resolver: '',
     dial_timeout: '',
     extraText: '',
+
+    // 批量创建（仅新增时生效）
+    batch_enabled: false,
+    batch_count: 10,
+    batch_step: 1,
   }
 }
 
@@ -967,6 +911,24 @@ const previewText = computed(() => {
   return JSON.stringify(obj, null, 2)
 })
 
+/** 批量创建预览：前几个标识 + 端口区间，和后端生成规则保持一致。 */
+const batchPreview = computed(() => {
+  const count = Math.max(2, Math.min(form.batch_count || 2, 200))
+  const step = Math.max(1, form.batch_step || 1)
+  const baseTag = form.tag.trim()
+  const portAt = (i: number) => (needServer.value ? form.port + (i - 1) * step : 0)
+  const tagAt = (i: number) => {
+    const port = portAt(i)
+    if (!baseTag) return port > 0 ? `out-${form.type}-${port}` : `out-${form.type}-${i}`
+    return baseTag.includes('{n}') ? baseTag.replaceAll('{n}', String(i)) : `${baseTag}-${i}`
+  }
+  const shown = [1, 2, 3].slice(0, count).map(tagAt)
+  const ellipsis = count > 3 ? ' … ' : ''
+  if (!needServer.value) return `${shown.join('、')}${ellipsis}`
+  const lastPort = form.port + (count - 1) * step
+  return `${shown.join('、')}${ellipsis}（端口 ${form.port}–${lastPort}）`
+})
+
 // ---- 后端对象 -> 表单 ----
 
 function fillForm(ob: Outbound) {
@@ -1157,8 +1119,9 @@ function onTlsToggle(v: boolean) {
 }
 
 async function save() {
-  if (!form.tag || !form.type) {
-    ElMessage.warning('请填写标识和类型')
+  const batch = !form.id && form.batch_enabled && form.batch_count > 1
+  if (!form.type || (!form.tag && !batch)) {
+    ElMessage.warning(batch ? '请选择类型' : '请填写标识和类型')
     return
   }
   if (form.extraText.trim()) {
@@ -1169,16 +1132,38 @@ async function save() {
       return
     }
   }
+  const step = Math.max(1, form.batch_step || 1)
+  if (batch && form.type === 'wireguard') {
+    ElMessage.warning('WireGuard 的 peer 是固定端点，不支持批量创建')
+    return
+  }
+  if (batch && needServer.value && form.port + (form.batch_count - 1) * step > 65535) {
+    ElMessage.warning('批量创建的最后一个端口超出 65535，请减小数量或步长')
+    return
+  }
+
   saving.value = true
   try {
     const payload = buildPayload()
-    if (form.id) {
+    if (batch) {
+      const res = await api.post<{ count?: number; apply_error?: string }>('/api/outbounds/batch', {
+        ...payload,
+        count: form.batch_count,
+        port_step: step,
+      })
+      if (res.apply_error) {
+        ElMessage.warning(`已创建 ${res.count || form.batch_count} 个出站，但内核应用失败：${res.apply_error}`)
+      } else {
+        ElMessage.success(`已创建 ${res.count || form.batch_count} 个出站并应用`)
+      }
+    } else if (form.id) {
       await api.put(`/api/outbounds/${form.id}`, payload)
+      ElMessage.success('已保存并应用')
     } else {
       await api.post('/api/outbounds', payload)
+      ElMessage.success('已保存并应用')
     }
     rememberPort(form.type, form.port)
-    ElMessage.success('已保存')
     drawer.value = false
     await load()
   } finally {
@@ -1266,24 +1251,5 @@ onMounted(async () => {
 
 .port-tag {
   cursor: pointer;
-}
-
-/* ---- 批量操作栏 ---- */
-.batch-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  margin-bottom: 10px;
-  background: #f0f9eb;
-  border: 1px solid #e1f3d8;
-  border-radius: 4px;
-}
-
-.batch-count {
-  font-size: 13px;
-  font-weight: 600;
-  color: #529b2e;
-  margin-right: 4px;
 }
 </style>

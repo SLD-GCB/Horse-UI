@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -63,6 +64,110 @@ func (a *App) createInbound(c *gin.Context) {
 		return
 	}
 	a.afterApply(c, gin.H{"inbound": ib})
+}
+
+// batchInboundPayload 批量创建入站的请求体：以一份入站配置为模板。
+type batchInboundPayload struct {
+	model.Inbound
+	Count    int `json:"count"`
+	PortStep int `json:"port_step"`
+}
+
+const batchInboundLimit = 100
+
+// batchCreateInbounds 按模板批量创建入站，端口依次递增，标识支持 {n} 占位。
+func (a *App) batchCreateInbounds(c *gin.Context) {
+	var req batchInboundPayload
+	if err := c.ShouldBindJSON(&req); err != nil {
+		badRequest(c, err.Error())
+		return
+	}
+	if req.Count < 1 || req.Count > batchInboundLimit {
+		badRequest(c, fmt.Sprintf("单次批量创建数量需在 1-%d 之间", batchInboundLimit))
+		return
+	}
+	step := req.PortStep
+	if step <= 0 {
+		step = 1
+	}
+	if step > 1000 {
+		badRequest(c, "端口递增步长不能超过 1000")
+		return
+	}
+	base := req.Inbound
+	if base.Port <= 0 || base.Port > 65535 {
+		badRequest(c, "基础端口需在 1-65535 之间")
+		return
+	}
+
+	ports := make([]int, 0, req.Count)
+	for i := 0; i < req.Count; i++ {
+		port := base.Port + i*step
+		if port > 65535 {
+			badRequest(c, fmt.Sprintf("第 %d 个入站端口超出 65535，请减小数量或步长", i+1))
+			return
+		}
+		ports = append(ports, port)
+	}
+
+	// 端口占用检查：同一端口已经有入站时，批量创建会让内核应用失败。
+	var used []model.Inbound
+	a.db.Where("port IN ?", ports).Find(&used)
+	if len(used) > 0 {
+		tags := make([]string, 0, len(used))
+		for _, ib := range used {
+			tags = append(tags, fmt.Sprintf("%s(%d)", ib.Tag, ib.Port))
+		}
+		badRequest(c, "端口已被占用："+strings.Join(tags, "、"))
+		return
+	}
+
+	created := make([]model.Inbound, 0, req.Count)
+	for i := 0; i < req.Count; i++ {
+		ib := base
+		ib.ID = 0
+		ib.Port = ports[i]
+		ib.Tag = batchTag(base.Tag, i+1)
+		ib.UsedUp = 0
+		ib.UsedDown = 0
+		ib.RawUp = 0
+		ib.RawDown = 0
+		ib.Clients = nil
+		if err := a.prepareInbound(&ib); err != nil {
+			a.deleteInbounds(created)
+			badRequest(c, err.Error())
+			return
+		}
+		if err := a.db.Create(&ib).Error; err != nil {
+			a.deleteInbounds(created)
+			serverError(c, err)
+			return
+		}
+		created = append(created, ib)
+	}
+
+	a.afterApply(c, gin.H{"inbounds": created, "count": len(created)})
+}
+
+// batchTag 生成批量条目的标识：支持 {n} 占位，未填时交给 prepare 自动生成。
+func batchTag(base string, index int) string {
+	base = strings.TrimSpace(base)
+	if base == "" {
+		return ""
+	}
+	if strings.Contains(base, "{n}") {
+		return strings.ReplaceAll(base, "{n}", strconv.Itoa(index))
+	}
+	return fmt.Sprintf("%s-%d", base, index)
+}
+
+// deleteInbounds 回滚批量创建过程中已经写入的入站。
+func (a *App) deleteInbounds(inbounds []model.Inbound) {
+	for _, ib := range inbounds {
+		a.db.Where("inbound_id = ?", ib.ID).Delete(&model.Client{})
+		a.db.Where("inbound_id = ?", ib.ID).Delete(&model.ClientInbound{})
+		a.db.Delete(&model.Inbound{}, ib.ID)
+	}
 }
 
 func (a *App) updateInbound(c *gin.Context) {

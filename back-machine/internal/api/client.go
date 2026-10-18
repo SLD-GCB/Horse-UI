@@ -2,7 +2,9 @@ package api
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -128,6 +130,135 @@ func (a *App) createClient(c *gin.Context) {
 		return
 	}
 	a.afterApply(c, gin.H{"client": cl})
+}
+
+// batchClientPayload 批量创建用户的请求体。
+type batchClientPayload struct {
+	InboundID  uint       `json:"inbound_id"`
+	InboundIDs []uint     `json:"inbound_ids"`
+	Count      int        `json:"count"`
+	NamePrefix string     `json:"name_prefix"`
+	NameStart  int        `json:"name_start"` // 0 表示自动接续已有编号
+	Flow       string     `json:"flow"`
+	QuotaBytes int64      `json:"quota_bytes"`
+	ExpireAt   *time.Time `json:"expire_at"`
+	Enable     *bool      `json:"enable"`
+	Remark     string     `json:"remark"`
+}
+
+const batchClientLimit = 200
+
+// batchCreateClients 批量创建用户，最后只应用一次内核配置。
+func (a *App) batchCreateClients(c *gin.Context) {
+	var req batchClientPayload
+	if err := c.ShouldBindJSON(&req); err != nil {
+		badRequest(c, err.Error())
+		return
+	}
+	if req.InboundID == 0 {
+		badRequest(c, "必须指定主入站")
+		return
+	}
+	if req.Count < 1 || req.Count > batchClientLimit {
+		badRequest(c, fmt.Sprintf("单次批量创建数量需在 1-%d 之间", batchClientLimit))
+		return
+	}
+	var ib model.Inbound
+	if err := a.db.First(&ib, req.InboundID).Error; err != nil {
+		badRequest(c, "主入站不存在")
+		return
+	}
+
+	prefix := strings.TrimSpace(req.NamePrefix)
+	if prefix == "" {
+		prefix = "user-"
+	}
+
+	start := req.NameStart
+	if start <= 0 {
+		start = a.nextClientIndex(prefix)
+	}
+	if start < 1 {
+		start = 1
+	}
+	width := len(strconv.Itoa(start + req.Count - 1))
+	if width < 2 {
+		width = 2
+	}
+
+	enable := true
+	if req.Enable != nil {
+		enable = *req.Enable
+	}
+
+	created := make([]model.Client, 0, req.Count)
+	for i := 0; i < req.Count; i++ {
+		name := fmt.Sprintf("%s%0*d", prefix, width, start+i)
+		if len([]rune(name)) > 64 {
+			a.deleteClients(created)
+			badRequest(c, "生成的用户名超过 64 个字符，请缩短前缀")
+			return
+		}
+		cl := model.Client{
+			InboundID:  req.InboundID,
+			Name:       name,
+			Flow:       strings.TrimSpace(req.Flow),
+			Enable:     enable,
+			QuotaBytes: req.QuotaBytes,
+			ExpireAt:   req.ExpireAt,
+			Remark:     req.Remark,
+		}
+		if err := a.prepareClient(&ib, &cl); err != nil {
+			a.deleteClients(created)
+			badRequest(c, err.Error())
+			return
+		}
+		if err := a.db.Create(&cl).Error; err != nil {
+			a.deleteClients(created)
+			serverError(c, err)
+			return
+		}
+		if err := a.syncClientBindings(cl.ID, req.InboundIDs); err != nil {
+			created = append(created, cl)
+			a.deleteClients(created)
+			serverError(c, err)
+			return
+		}
+		created = append(created, cl)
+	}
+
+	a.afterApply(c, gin.H{"clients": created, "count": len(created)})
+}
+
+// nextClientIndex 自动接续同前缀用户的最大编号，避免重复创建时撞名。
+func (a *App) nextClientIndex(prefix string) int {
+	var names []string
+	// 用 substr 比较前缀，避免 LIKE 把前缀里的 % 和 _ 当成通配符。
+	a.db.Model(&model.Client{}).
+		Where("substr(name, 1, ?) = ?", len([]rune(prefix)), prefix).
+		Pluck("name", &names)
+	max := 0
+	for _, name := range names {
+		suffix := strings.TrimPrefix(name, prefix)
+		if suffix == name || suffix == "" {
+			continue
+		}
+		n, err := strconv.Atoi(suffix)
+		if err != nil || n <= max {
+			continue
+		}
+		max = n
+	}
+	return max + 1
+}
+
+// deleteClients 回滚批量创建过程中已经写入的用户。
+func (a *App) deleteClients(clients []model.Client) {
+	for _, cl := range clients {
+		a.db.Where("client_id = ?", cl.ID).Delete(&model.ClientInbound{})
+		a.db.Where("client_id = ?", cl.ID).Delete(&model.ClientStat{})
+		a.db.Delete(&model.Client{}, cl.ID)
+	}
 }
 
 func (a *App) updateClient(c *gin.Context) {

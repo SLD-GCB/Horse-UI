@@ -132,12 +132,7 @@ export interface ClientLinks {
   links: string[]
   nodes: number
   sub_url: string
-  /** 三种配置的二维码（PNG data URL）；内容过大时为空串。 */
-  qrcodes: {
-    general: string
-    clash: string
-    singbox: string
-  }
+  qrcode: string
   clash: unknown
   singbox: unknown
 }

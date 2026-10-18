@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -39,6 +40,95 @@ func (a *App) createOutbound(c *gin.Context) {
 		return
 	}
 	a.afterApply(c, gin.H{"outbound": ob})
+}
+
+// batchOutboundPayload 批量创建出站的请求体：以一份出站配置为模板。
+type batchOutboundPayload struct {
+	model.Outbound
+	Count    int `json:"count"`
+	PortStep int `json:"port_step"`
+}
+
+const batchOutboundLimit = 200
+
+// batchCreateOutbounds 按模板批量创建出站，端口依次递增，标识支持 {n} 占位。
+func (a *App) batchCreateOutbounds(c *gin.Context) {
+	var req batchOutboundPayload
+	if err := c.ShouldBindJSON(&req); err != nil {
+		badRequest(c, err.Error())
+		return
+	}
+	if req.Count < 1 || req.Count > batchOutboundLimit {
+		badRequest(c, fmt.Sprintf("单次批量创建数量需在 1-%d 之间", batchOutboundLimit))
+		return
+	}
+	step := req.PortStep
+	if step <= 0 {
+		step = 1
+	}
+	if step > 1000 {
+		badRequest(c, "端口递增步长不能超过 1000")
+		return
+	}
+	base := req.Outbound
+	if base.Type == model.ProtoWireGuard {
+		badRequest(c, "WireGuard 的 peer 是固定端点，不支持批量创建；请改用分享链接导入或逐个创建")
+		return
+	}
+	needPort := base.Type != "direct" && base.Type != "block"
+
+	created := make([]model.Outbound, 0, req.Count)
+	for i := 0; i < req.Count; i++ {
+		ob := base
+		ob.ID = 0
+		ob.CreatedAt = time.Time{}
+		ob.UpdatedAt = time.Time{}
+		if needPort {
+			ob.Port = base.Port + i*step
+			if ob.Port > 65535 {
+				a.deleteOutbounds(created)
+				badRequest(c, fmt.Sprintf("第 %d 个出站端口超出 65535，请减小数量或步长", i+1))
+				return
+			}
+		}
+		ob.Tag = outboundBatchTag(base.Tag, base.Type, i+1, ob.Port)
+		if err := a.prepareOutbound(&ob); err != nil {
+			a.deleteOutbounds(created)
+			badRequest(c, err.Error())
+			return
+		}
+		if err := a.db.Create(&ob).Error; err != nil {
+			a.deleteOutbounds(created)
+			serverError(c, err)
+			return
+		}
+		created = append(created, ob)
+	}
+
+	a.afterApply(c, gin.H{"outbounds": created, "count": len(created)})
+}
+
+// outboundBatchTag 生成批量出站的标识：
+// 留空按「类型-端口」自动命名；{n} 替换为序号，否则追加 -序号。
+func outboundBatchTag(base, typ string, index, port int) string {
+	base = strings.TrimSpace(base)
+	if base == "" {
+		if port <= 0 {
+			return fmt.Sprintf("out-%s-%d", typ, index)
+		}
+		return fmt.Sprintf("out-%s-%d", typ, port)
+	}
+	if strings.Contains(base, "{n}") {
+		return strings.ReplaceAll(base, "{n}", strconv.Itoa(index))
+	}
+	return fmt.Sprintf("%s-%d", base, index)
+}
+
+// deleteOutbounds 回滚批量创建过程中已经写入的出站。
+func (a *App) deleteOutbounds(outbounds []model.Outbound) {
+	for _, ob := range outbounds {
+		a.db.Delete(&model.Outbound{}, ob.ID)
+	}
 }
 
 func (a *App) updateOutbound(c *gin.Context) {

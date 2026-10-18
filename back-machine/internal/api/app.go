@@ -175,9 +175,7 @@ func (a *App) routes() {
 
 		auth.GET("/inbounds", a.listInbounds)
 		auth.POST("/inbounds", a.createInbound)
-		// 批量：按协议组合一次性建多条 / 多选批量操作
-		auth.POST("/inbounds/batch-clone", a.batchCloneInbound)
-		auth.POST("/inbounds/batch-op", a.batchInboundOp)
+		auth.POST("/inbounds/batch", a.batchCreateInbounds)
 		auth.POST("/inbounds/:id/test", a.testInbound)
 		auth.GET("/inbounds/:id", a.getInbound)
 		auth.PUT("/inbounds/:id", a.updateInbound)
@@ -185,6 +183,7 @@ func (a *App) routes() {
 
 		auth.GET("/clients", a.listClients)
 		auth.POST("/clients", a.createClient)
+		auth.POST("/clients/batch", a.batchCreateClients)
 		auth.PUT("/clients/:id", a.updateClient)
 		auth.DELETE("/clients/:id", a.deleteClient)
 		auth.POST("/clients/:id/reset-traffic", a.resetClientTraffic)
@@ -194,9 +193,7 @@ func (a *App) routes() {
 
 		auth.GET("/outbounds", a.listOutbounds)
 		auth.POST("/outbounds", a.createOutbound)
-		// 批量：多选批量操作 / 多行链接导入
-		auth.POST("/outbounds/batch-op", a.batchOutboundOp)
-		auth.POST("/outbounds/batch-import", a.batchImportOutbounds)
+		auth.POST("/outbounds/batch", a.batchCreateOutbounds)
 		auth.POST("/outbounds/test", a.testOutbound)
 		auth.POST("/outbounds/parse", a.parseOutboundLink)
 		auth.PUT("/outbounds/:id", a.updateOutbound)
@@ -213,6 +210,7 @@ func (a *App) routes() {
 		auth.POST("/certs/:id/renew", a.renewCert)
 		auth.DELETE("/certs/:id", a.deleteCert)
 		auth.GET("/cert-providers", a.certProviders)
+		auth.GET("/panelcert", a.panelCertInfo)
 
 		auth.GET("/stats/summary", a.statsSummary)
 		auth.GET("/stats/conns", a.statsConns)

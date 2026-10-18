@@ -2,16 +2,11 @@
 setlocal enabledelayedexpansion
 
 REM ============================================================
-REM  HorseUI 打包脚本（安装包 + 更新文件一次出齐）
-REM  用法: 双击运行，按提示输入版本号
-REM        或  build-linux.bat [amd64^|arm64^|both] [版本号]
+REM  HorseUI Linux 安装包打包脚本
+REM  用法: 双击运行，或  build-linux.bat [amd64^|arm64^|both]
+REM  产物: service\dist\horseui-<版本>-linux-<架构>.zip
 REM
-REM  产物:
-REM    service\dist\horseui-<版本>-linux-<架构>.zip   安装包（含内核 + install.sh）
-REM    service\dist\horseui.new                       更新用二进制（菜单「更新面板」读它）
-REM    service\dist\archive\horseui-update-<版本>-linux-<架构>.new   带版号的留档副本
-REM
-REM  版本号会同时写进二进制（-X main.version），装/更新后面板里显示的就是它。
+REM  包内含：面板二进制（前端已内嵌）、sing-box 内核、install.sh。
 REM  安装时会自动做一次系统调优（UDP 缓冲 / BBR），可用 HORSEUI_TUNE=0 跳过。
 REM ============================================================
 
@@ -26,32 +21,25 @@ if /i not "%WHAT%"=="amd64" if /i not "%WHAT%"=="arm64" if /i not "%WHAT%"=="bot
   set "WHAT=both"
 )
 
-REM ---------- 版本号 ----------
-REM 默认值取自 back-machine\main.go 的 var version；双击运行时手动输入，回车沿用默认值。
-REM 用绝对路径调 findstr，避开本机 PATH 异常导致取不到版本号。
-set "DEFVER="
-for /f "tokens=2 delims==" %%a in ('%SystemRoot%\System32\findstr.exe /r /c:"^var version" "back-machine\main.go" 2^>nul') do set "DEFVER=%%a"
-if defined DEFVER set DEFVER=%DEFVER:"=%
-if defined DEFVER set DEFVER=%DEFVER: =%
-if not defined DEFVER set "DEFVER=dev"
-
-set "VER=%~2"
-if not defined VER (
-  echo.
-  echo ============================================================
-  echo   当前源码版本: %DEFVER%
-  echo ============================================================
-  set /p "VER=请输入本次打包的版本号（直接回车沿用 %DEFVER%）: "
-)
-if not defined VER set "VER=%DEFVER%"
-set "VER=%VER: =%"
+REM ---------- 版本号: 取自 back-machine\main.go 的 var version ----------
+REM 用绝对路径调 findstr，避开本机 PATH 异常导致取不到版本号（否则会打成 horseui-dev-*.zip）
+set "VER="
+for /f "tokens=2 delims==" %%a in ('%SystemRoot%\System32\findstr.exe /r /c:"^var version" "back-machine\main.go" 2^>nul') do set "VER=%%a"
+if defined VER set VER=%VER:"=%
+if defined VER set VER=%VER: =%
 if not defined VER set "VER=dev"
 
-REM ---------- 前置检查: 只有 install.sh 必须存在 ----------
-REM horseui.service / README-install.txt 缺失时脚本会就地生成，不再因此打包失败。
-if not exist "service\install.sh" (
-  echo [错误] 缺少 service\install.sh，无法打包（安装脚本是这个仓库的核心逻辑，不做自动生成）
-  goto :fail
+set "DEFVER=%VER%"
+set /p "VER=输入版本号（回车默认 %DEFVER%）: "
+if not defined VER set "VER=%DEFVER%"
+set "VER=%VER: =%"
+
+REM ---------- 前置检查: 安装包要带的东西必须都在 ----------
+for %%F in (service\install.sh service\horseui.service service\README-install.txt) do (
+  if not exist "%%F" (
+    echo [错误] 缺少 %%F，无法打包安装包
+    goto :fail
+  )
 )
 
 REM ---------- 定位 tar.exe（Win10 1803+ 自带，可写 zip） ----------
@@ -65,7 +53,7 @@ if not defined TAR (
 
 echo.
 echo ============================================================
-echo   HorseUI 打包    版本 %VER%
+echo   HorseUI Linux 打包    版本 %VER%
 echo   目标架构: %WHAT%
 echo ============================================================
 echo.
@@ -106,7 +94,7 @@ set "ARCHLIST=amd64 arm64"
 if /i "%WHAT%"=="amd64" set "ARCHLIST=amd64"
 if /i "%WHAT%"=="arm64" set "ARCHLIST=arm64"
 
-echo [2/3] 交叉编译 Linux 二进制（版本 %VER%）...
+echo [2/3] 交叉编译 Linux 二进制 ...
 if not exist "service\dist" mkdir "service\dist"
 for %%A in (%ARCHLIST%) do (
   echo   - linux/%%A
@@ -137,29 +125,11 @@ mkdir "%PKGTMP%"
 for %%A in (%ARCHLIST%) do call :pack %%A
 rmdir /s /q "%PKGTMP%"
 
-REM ---------- 4/4 同时产出更新用二进制 ----------
-REM 菜单「更新面板」默认读 /usr/local/horseui/horseui.new，名字不能改，所以一次只能一个架构：
-REM both 时用 amd64，arm64 的留在 archive 里，需要时改名上传。
-set "UPDARCH=amd64"
-if /i "%WHAT%"=="arm64" set "UPDARCH=arm64"
-if exist "%OUT%\horseui-linux-%UPDARCH%" (
-  copy /y "%OUT%\horseui-linux-%UPDARCH%" "%OUT%\horseui.new" >nul
-  if not exist "%OUT%\archive" mkdir "%OUT%\archive"
-  for %%A in (%ARCHLIST%) do (
-    copy /y "%OUT%\horseui-linux-%%A" "%OUT%\archive\horseui-update-%VER%-linux-%%A.new" >nul
-  )
-  echo [4/4] 更新文件已生成：horseui.new（架构 %UPDARCH%）
-) else (
-  echo [警告] 未找到 %UPDARCH% 的二进制，跳过生成 horseui.new
-)
-
 echo.
 echo ============================================================
 echo   打包完成，产物在 service\dist\ ：
 echo.
 dir /b "%OUT%\horseui-*.zip"
-echo   horseui.new                             ^<- 更新用，上传到 /usr/local/horseui/
-echo   archive\horseui-update-%VER%-linux-*.new  ^<- 带版号的留档副本
 echo.
 if defined MISSING (
   echo   [重要] 以下架构未随包提供 sing-box 内核：%MISSING%
@@ -167,21 +137,14 @@ if defined MISSING (
   echo          缺内核的包体积会明显偏小，请确认这是你想要的
   echo.
 )
-echo   本次版本: %VER%（已写入二进制，装/更新后面板显示的就是这个版本）
-echo.
-echo   A. 全新安装
-echo     1. 上传 horseui-^<版本^>-linux-^<架构^>.zip 到服务器
+echo   服务器上安装：
+echo     1. 上传该 zip 到服务器
 echo     2. unzip 包名.zip     若没装 unzip 就用  python3 -m zipfile -e 包名.zip .
 echo     3. cd 解压出来的目录
 echo     4. sudo bash service/install.sh
-echo      安装时会自动做系统调优（UDP 缓冲 / BBR），跳过用： sudo HORSEUI_TUNE=0 bash service/install.sh
-echo.
-echo   B. 已有面板升级（只换程序，不动数据和内核）
-echo     1. scp horseui.new root@服务器IP:/usr/local/horseui/
-echo     2. 服务器上执行 sudo horseui，选「更新面板」，路径直接回车
-echo     3. 退出菜单后再敲 horseui 就是新版本
 echo.
 echo   包内已含面板二进制与 sing-box 内核，服务器无需安装 Go / Node
+echo   安装时会自动做系统调优（UDP 缓冲 / BBR），跳过用： sudo HORSEUI_TUNE=0 bash service/install.sh
 echo   装完后可在面板里看到：行为抹除、系统调优（含 BBR 滑块）、仪表盘连接数诊断
 echo ============================================================
 echo [PACK-OK]
@@ -197,29 +160,10 @@ set "PKG=horseui-%VER%-linux-%A%"
 set "STAGE=%PKGTMP%\%PKG%"
 mkdir "%STAGE%\service\dist" 2>nul
 
-copy /y "service\install.sh" "%STAGE%\service\install.sh" >nul
-if errorlevel 1 (
-  echo   [错误] 复制 install.sh 失败
-  goto :fail
-)
-
-REM systemd 单元：优先用仓库里的，缺失时按内置模板生成（纯 ASCII，避免编码问题）
-if exist "service\horseui.service" (
-  copy /y "service\horseui.service" "%STAGE%\service\horseui.service" >nul
-) else (
-  echo   ! 未找到 service\horseui.service，已按内置模板生成
-  call :genService "%STAGE%\service\horseui.service"
-)
-
-REM 说明文件：优先用仓库里的，缺失时生成一份精简版
-if exist "service\README-install.txt" (
-  copy /y "service\README-install.txt" "%STAGE%\README-install.txt" >nul
-) else (
-  echo   ! 未找到 service\README-install.txt，已生成精简说明
-  call :genReadme "%STAGE%\README-install.txt"
-)
-
-copy /y "%OUT%\horseui-linux-%A%" "%STAGE%\service\dist\horseui-linux-%A%" >nul
+copy /y "service\install.sh"         "%STAGE%\service\install.sh"        >nul
+copy /y "service\horseui.service"    "%STAGE%\service\horseui.service"   >nul
+copy /y "service\README-install.txt" "%STAGE%\README-install.txt"        >nul
+copy /y "%OUT%\horseui-linux-%A%"    "%STAGE%\service\dist\horseui-linux-%A%" >nul
 if errorlevel 1 (
   echo   [错误] 缺少 %OUT%\horseui-linux-%A%
   goto :fail
@@ -250,65 +194,6 @@ if errorlevel 1 (
   goto :fail
 )
 echo   = %PKG%.zip
-goto :eof
-
-REM ============================================================
-REM  子过程: 生成 systemd 单元（ASCII，UTF-8 安全）
-REM ============================================================
-:genService
-(
-echo [Unit]
-echo Description=HorseUI sing-box proxy panel
-echo After=network.target nss-lookup.target
-echo.
-echo [Service]
-echo Type=simple
-echo WorkingDirectory=/etc/horseui
-echo ExecStart=/usr/local/horseui/horseui -run -data /etc/horseui -listen 0.0.0.0:8080
-echo Restart=on-failure
-echo RestartSec=3
-echo LimitNOFILE=1048576
-echo LimitNPROC=1048576
-echo # panel needs to manage the sing-box child process and listening ports
-echo AmbientCapabilities=CAP_NET_BIND_SERVICE
-echo CapabilityBoundingSet=CAP_NET_BIND_SERVICE
-echo.
-echo [Install]
-echo WantedBy=multi-user.target
-) > "%~1"
-goto :eof
-
-REM ============================================================
-REM  子过程: 生成精简安装说明（纯 ASCII，UTF-8 安全）
-REM ============================================================
-:genReadme
-(
-echo HorseUI - Linux install notes
-echo =============================
-echo.
-echo 1. Install ^(run from the extracted package root^):
-echo      sudo bash service/install.sh
-echo    The script installs the panel binary, the bundled sing-box kernel,
-echo    the systemd unit, and applies kernel tuning ^(UDP buffers / BBR^).
-echo    Skip tuning with:  sudo HORSEUI_TUNE=0 bash service/install.sh
-echo.
-echo 2. Panel address:
-echo      https://^<server-ip^>:8080      user: admin
-echo    HTTPS is on by default with a self-signed cert ^(browser warning is normal^).
-echo    The initial password is printed once at first start:
-echo      journalctl -u horseui --no-pager ^| grep -i password
-echo.
-echo 3. Open the panel port in your firewall / cloud security group,
-echo    plus every node port you create later ^(TCP and UDP^).
-echo.
-echo 4. Daily management ^(numeric menu^):
-echo      horseui
-echo    start / stop / restart / status / show credentials / reset password /
-echo    kernel / logs / update / uninstall / system tuning
-echo.
-echo 5. The package already contains the panel binary and sing-box kernel;
-echo    Go / Node are not required on the server.
-) > "%~1"
 goto :eof
 
 :fail
