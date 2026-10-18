@@ -4,6 +4,13 @@
 
 面板与 sing-box 跑在同一台机器上，sing-box 作为受管子进程运行，前端资源内嵌在单一二进制里。
 
+安装方法在下载后的Linux的zip安装包里，叫README-install.txt，请仔细查看。
+
+并且这个面板需要搭配我专门为这个面板开发的代理工具HorseBox，
+
+这是HorseBox的项目地址：
+https://github.com/SLD-GCB/HorseBox
+
 ---
 
 ## 功能
