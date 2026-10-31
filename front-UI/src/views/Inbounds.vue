@@ -1078,8 +1078,12 @@ function buildExtra(): Record<string, unknown> | null {
   }
   if (form.type === 'skyhorse') {
     if (form.sky_obfs_rotation > 0) e.obfs_rotation_seconds = form.sky_obfs_rotation
-    if (form.sky_masquerade_type && form.sky_masquerade_type !== '404') {
-      e.masquerade = { type: form.sky_masquerade_type, content: form.sky_masquerade_content }
+    if (form.sky_masquerade_type === 'string') {
+      e.masquerade = { type: 'string', content: form.sky_masquerade_content }
+    } else if (form.sky_masquerade_type === 'file') {
+      e.masquerade = { type: 'file', root: form.sky_masquerade_content }
+    } else if (form.sky_masquerade_type === 'proxy') {
+      e.masquerade = { type: 'proxy', proxy_url: form.sky_masquerade_content }
     }
     if (form.sky_allow_private || form.sky_allow_loopback) {
       e.policy = { allow_private: !!form.sky_allow_private, allow_loopback: !!form.sky_allow_loopback }
@@ -1305,7 +1309,7 @@ async function openEdit(row: Inbound) {
     const masq = asObj(extra.masquerade)
     if (masq) {
       form.sky_masquerade_type = String(masq.type || '404')
-      form.sky_masquerade_content = String(masq.content || '')
+      form.sky_masquerade_content = String(masq.content ?? masq.root ?? masq.proxy_url ?? '')
       delete extra.masquerade
     }
     const policy = asObj(extra.policy)
