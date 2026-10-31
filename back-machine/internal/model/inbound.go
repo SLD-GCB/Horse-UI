@@ -10,6 +10,7 @@ const (
 	ProtoShadowsocks = "shadowsocks"
 	ProtoTUIC        = "tuic"
 	ProtoHysteria2   = "hysteria2"
+	ProtoSkyHorse    = "skyhorse"
 	ProtoHTTP        = "http"
 )
 

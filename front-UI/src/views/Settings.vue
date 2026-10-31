@@ -158,22 +158,13 @@
             </el-form-item>
             <el-form-item label="客户端证书指纹">
               <div class="fp-box">
-                <span v-if="panelCert?.sha256" class="fp">
-                  {{ fingerprintVisible ? panelCert.sha256 : maskedFingerprint }}
-                </span>
+                <span v-if="panelCert?.sha256" class="fp">{{ panelCert.sha256 }}</span>
                 <span v-else class="hint" style="margin-top: 0">面板证书未加载</span>
-                <el-button
-                  v-if="panelCert?.sha256"
-                  size="small"
-                  @click="fingerprintVisible = !fingerprintVisible"
-                >
-                  {{ fingerprintVisible ? '隐藏' : '显示' }}
-                </el-button>
                 <el-button v-if="panelCert?.sha256" size="small" @click="copyFingerprint">复制</el-button>
                 <el-button size="small" @click="loadPanelCert">刷新</el-button>
               </div>
               <div class="hint">
-                指纹默认隐藏，需要时点「显示」查看。把 SHA-256 填到 HorseBox 添加订阅时的「面板证书指纹」。
+                把这段 SHA-256 填到 HorseBox →「设置 → 安全 → 面板证书指纹」。
                 Windows 和 Android 填同一份，客户端只信任这张证书。
               </div>
               <div v-if="panelCert?.self_signed && panelCert?.not_after" class="hint">
@@ -363,12 +354,6 @@ interface PanelCertInfo {
   warning?: string
 }
 const panelCert = ref<PanelCertInfo | null>(null)
-const fingerprintVisible = ref(false)
-const maskedFingerprint = computed(() => {
-  const value = panelCert.value?.sha256
-  if (!value) return ''
-  return value.replace(/[0-9A-Fa-f]/g, '•')
-})
 
 // ---- 系统调优（弱网优化） ----
 const tune = ref<TuneReport | null>(null)

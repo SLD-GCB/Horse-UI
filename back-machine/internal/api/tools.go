@@ -76,7 +76,7 @@ func (a *App) toolPresets(c *gin.Context) {
 	ok(c, gin.H{
 		"ss_methods":     config.PresetSSMethods(),
 		"ss2022_methods": []string{"2022-blake3-aes-128-gcm", "2022-blake3-aes-256-gcm", "2022-blake3-chacha20-poly1305"},
-		"inbound_types":  []string{"vless", "vmess", "trojan", "shadowsocks", "tuic", "hysteria2", "http"},
+		"inbound_types":  []string{"vless", "vmess", "trojan", "shadowsocks", "tuic", "hysteria2", "skyhorse", "http"},
 		"transports":     []string{"", "ws", "grpc", "httpupgrade", "http"},
 		"congestion":     []string{"cubic", "new_reno", "bbr"},
 		"obfs_types":     []string{"salamander", "gecko"},
@@ -112,7 +112,7 @@ func (a *App) toolPresets(c *gin.Context) {
 		"reality_maxdiff": []string{"", "30s", "1m", "5m", "10m"},
 
 		// 出站相关（字段名与取值同样经过 sing-box check 实测）。
-		"outbound_types":      []string{"direct", "block", "socks", "http", "shadowsocks", "vmess", "vless", "trojan", "hysteria2", "tuic", "wireguard"},
+		"outbound_types":      []string{"direct", "block", "socks", "http", "shadowsocks", "vmess", "vless", "trojan", "hysteria2", "tuic", "skyhorse", "wireguard"},
 		"outbound_transports": []string{"", "ws", "grpc", "http", "httpupgrade"},
 		"vmess_securities":    []string{"auto", "aes-128-gcm", "chacha20-poly1305", "none", "zero"},
 		"socks_versions":      []string{"5", "4a"},

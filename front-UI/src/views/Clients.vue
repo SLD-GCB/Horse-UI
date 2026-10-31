@@ -304,8 +304,8 @@ const batchForm = reactive({
 
 const formType = computed(() => inbounds.value.find((i) => i.id === form.inbound_id)?.type || '')
 const currentInbound = computed(() => inbounds.value.find((i) => i.id === form.inbound_id))
-const needUUID = computed(() => ['vless', 'vmess', 'tuic'].includes(formType.value))
-const needPassword = computed(() => ['trojan', 'shadowsocks', 'tuic', 'hysteria2', 'http'].includes(formType.value))
+const needUUID = computed(() => ['vless', 'vmess', 'tuic', 'skyhorse'].includes(formType.value))
+const needPassword = computed(() => ['trojan', 'shadowsocks', 'tuic', 'hysteria2', 'skyhorse', 'http'].includes(formType.value))
 const bindableInbounds = computed(() => inbounds.value.filter((ib) => ib.id !== form.inbound_id))
 const batchType = computed(() => inbounds.value.find((i) => i.id === batchForm.inbound_id)?.type || '')
 const batchNeedFlow = computed(() => batchType.value === 'vless')

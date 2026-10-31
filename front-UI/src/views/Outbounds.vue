@@ -242,6 +242,39 @@
               </el-row>
             </template>
 
+            <template v-if="form.type === 'skyhorse'">
+              <el-form-item label="UUID">
+                <el-input v-model="form.uuid" />
+              </el-form-item>
+              <el-form-item label="密码">
+                <el-input v-model="form.password" show-password />
+              </el-form-item>
+              <el-row :gutter="12">
+                <el-col :span="12">
+                  <el-form-item label="混淆密码">
+                    <el-input v-model="form.obfs_password" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="混淆轮换（秒）">
+                    <el-input-number v-model="form.obfs_rotation" :min="0" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+              </el-row>
+              <el-row :gutter="12">
+                <el-col :span="12">
+                  <el-form-item label="上行 Mbps">
+                    <el-input-number v-model="form.up_mbps" :min="0" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="下行 Mbps">
+                    <el-input-number v-model="form.down_mbps" :min="0" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+              </el-row>
+            </template>
+
             <template v-if="form.type === 'tuic'">
               <el-form-item label="UUID">
                 <el-input v-model="form.uuid">
@@ -607,8 +640,8 @@ const testing = reactive<Record<number, boolean>>({})
 const isWindows = computed(() => navigator.userAgent.includes('Windows'))
 const ssMethods = computed(() => [...presets.value.ss2022_methods, ...presets.value.ss_methods])
 const needServer = computed(() => !['direct', 'block'].includes(form.type))
-const needTLS = computed(() => ['vless', 'vmess', 'trojan', 'hysteria2', 'tuic', 'http'].includes(form.type))
-const forceTLS = computed(() => ['hysteria2', 'tuic'].includes(form.type))
+const needTLS = computed(() => ['vless', 'vmess', 'trojan', 'hysteria2', 'skyhorse', 'tuic', 'http'].includes(form.type))
+const forceTLS = computed(() => ['hysteria2', 'skyhorse', 'tuic'].includes(form.type))
 // tlsActive 表示"实际会启用 TLS"：强制 TLS 的协议即便开关未打开也算启用。
 const tlsActive = computed(() => form.tls_enabled || forceTLS.value)
 const supportsTransport = computed(() => ['vless', 'vmess', 'trojan'].includes(form.type))
@@ -664,6 +697,7 @@ function emptyForm() {
     obfs_type: '',
     obfs_password: '',
     up_mbps: 0,
+    obfs_rotation: 0,
     down_mbps: 0,
     congestion_control: '',
     udp_relay_mode: '',
@@ -764,6 +798,15 @@ function buildConfig(): Record<string, unknown> {
       if (form.up_mbps) cfg.up_mbps = form.up_mbps
       if (form.down_mbps) cfg.down_mbps = form.down_mbps
       if (form.network) cfg.network = form.network
+      break
+    }
+    case 'skyhorse': {
+      cfg.uuid = form.uuid
+      if (form.password) cfg.password = form.password
+      if (form.obfs_password) cfg.obfs_password = form.obfs_password
+      if (form.obfs_rotation) cfg.obfs_rotation_seconds = form.obfs_rotation
+      if (form.up_mbps) cfg.up_mbps = form.up_mbps
+      if (form.down_mbps) cfg.down_mbps = form.down_mbps
       break
     }
     case 'tuic': {

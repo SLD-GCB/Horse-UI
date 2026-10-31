@@ -268,6 +268,9 @@ func BuildShareLink(server string, ib model.Inbound, cl model.Client) string {
 		}
 		return fmt.Sprintf("hysteria2://%s@%s:%d?%s#%s", url.QueryEscape(cl.Password), server, ib.Port, q.Encode(), name)
 
+	case model.ProtoSkyHorse:
+		return ""
+
 	case model.ProtoTUIC:
 		q := url.Values{}
 		if ib.CongestionControl != "" {
@@ -398,6 +401,9 @@ func buildClashProxy(server string, ib model.Inbound, cl model.Client) map[strin
 			p["down"] = fmt.Sprintf("%d Mbps", ib.DownMbps)
 		}
 		return p
+
+	case model.ProtoSkyHorse:
+		return nil
 
 	case model.ProtoTUIC:
 		p := map[string]any{
@@ -547,6 +553,29 @@ func buildSingboxOutbound(server string, ib model.Inbound, cl model.Client) map[
 		}
 		return o
 
+	case model.ProtoSkyHorse:
+		o := base("skyhorse")
+		o["uuid"] = cl.UUID
+		o["password"] = cl.Password
+		o["obfs_password"] = ib.ObfsPassword
+		if extra := parseObj(ib.Extra); extra != nil {
+			if v, ok := extra["obfs_rotation_seconds"]; ok {
+				o["obfs_rotation_seconds"] = v
+			}
+			if v, ok := extra["obfs_tolerance_seconds"]; ok {
+				o["obfs_tolerance_seconds"] = v
+			}
+		}
+		if ib.UpMbps > 0 {
+			o["up_mbps"] = ib.UpMbps
+		}
+		if ib.DownMbps > 0 {
+			o["down_mbps"] = ib.DownMbps
+		}
+		if t := tlsObj(nil); t != nil {
+			o["tls"] = t
+		}
+		return o
 	case model.ProtoTUIC:
 		o := base("tuic")
 		o["uuid"] = cl.UUID

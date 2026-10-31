@@ -219,7 +219,7 @@ func (a *App) deleteInbound(c *gin.Context) {
 func (a *App) prepareInbound(ib *model.Inbound) error {
 	switch ib.Type {
 	case model.ProtoVLESS, model.ProtoVMess, model.ProtoTrojan,
-		model.ProtoShadowsocks, model.ProtoTUIC, model.ProtoHysteria2, model.ProtoHTTP:
+		model.ProtoShadowsocks, model.ProtoTUIC, model.ProtoHysteria2, model.ProtoSkyHorse, model.ProtoHTTP:
 	default:
 		return fmt.Errorf("不支持的协议类型: %s", ib.Type)
 	}

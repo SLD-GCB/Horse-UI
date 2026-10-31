@@ -10,18 +10,6 @@ cd /d "%~dp0"
 cd ..
 set "ROOT=%CD%"
 
-REM ---------- 版本 ----------
-set "DEFVER="
-for /f "tokens=2 delims==" %%a in ('%SystemRoot%\System32\findstr.exe /r /c:"^var version" "back-machine\main.go" 2^>nul') do set "DEFVER=%%a"
-if defined DEFVER set "DEFVER=%DEFVER:"=%"
-if defined DEFVER set "DEFVER=%DEFVER: =%"
-if not defined DEFVER set "DEFVER=dev"
-
-set "VER="
-set /p "VER=输入版本号（回车默认 %DEFVER%）: "
-if not defined VER set "VER=%DEFVER%"
-set "VER=%VER: =%"
-
 echo.
 echo ============================================================
 echo   HorseUI 构建脚本
@@ -72,7 +60,7 @@ echo [3/3] 编译后端 HorseUI.exe ...
 set "GOFLAGS=-mod=mod"
 set "GOPROXY=https://goproxy.cn,direct"
 set "CGO_ENABLED=0"
-go build -trimpath -ldflags "-s -w -X main.version=%VER%" -o "HorseUI.exe" ".\back-machine"
+go build -trimpath -ldflags "-s -w" -o "HorseUI.exe" ".\back-machine"
 if errorlevel 1 (
   echo [错误] 后端编译失败
   goto :fail

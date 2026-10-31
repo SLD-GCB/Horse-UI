@@ -266,6 +266,51 @@
               </el-form-item>
             </template>
 
+            <template v-else-if="form.type === 'skyhorse'">
+              <el-row :gutter="12">
+                <el-col :span="12">
+                  <el-form-item label="上行 Mbps">
+                    <el-input-number v-model="form.up_mbps" :min="0" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="下行 Mbps">
+                    <el-input-number v-model="form.down_mbps" :min="0" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="混淆密码">
+                    <el-input v-model="form.obfs_password" placeholder="留空则不启用混淆">
+                      <template #append><el-button @click="genObfsPassword">生成</el-button></template>
+                    </el-input>
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="混淆轮换（秒）">
+                    <el-input-number v-model="form.sky_obfs_rotation" :min="0" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+              </el-row>
+              <el-form-item label="伪装模式">
+                <el-select v-model="form.sky_masquerade_type" style="width: 240px">
+                  <el-option label="404（默认）" value="404" />
+                  <el-option label="固定内容" value="string" />
+                  <el-option label="本地目录" value="file" />
+                  <el-option label="反向代理站点" value="proxy" />
+                </el-select>
+              </el-form-item>
+              <el-form-item v-if="form.sky_masquerade_type !== '404'" label="伪装内容 / 地址">
+                <el-input v-model="form.sky_masquerade_content" placeholder="string 填 HTML；file 填目录；proxy 填 http://127.0.0.1:8080" />
+              </el-form-item>
+              <el-form-item label="允许访问私网">
+                <el-switch v-model="form.sky_allow_private" />
+              </el-form-item>
+              <el-form-item label="允许访问回环">
+                <el-switch v-model="form.sky_allow_loopback" />
+              </el-form-item>
+              <div class="hint">用户需要 UUID 和密码；订阅会下发自签 insecure 或 pin。</div>
+            </template>
+
             <template v-else-if="form.type === 'tuic'">
               <el-form-item label="拥塞控制">
                 <el-select v-model="form.congestion_control" style="width: 100%">
@@ -673,6 +718,7 @@ const typeOptions = [
   { label: 'Shadowsocks', value: 'shadowsocks' },
   { label: 'TUIC', value: 'tuic' },
   { label: 'Hysteria2', value: 'hysteria2' },
+  { label: 'SkyHorse', value: 'skyhorse' },
   { label: 'HTTP (H2)', value: 'http' },
 ]
 
@@ -762,6 +808,12 @@ function defaultForm() {
     batch_enabled: false,
     batch_count: 5,
     batch_step: 1,
+
+    sky_obfs_rotation: 0,
+    sky_masquerade_type: '404',
+    sky_masquerade_content: '',
+    sky_allow_private: false,
+    sky_allow_loopback: false,
   }
 }
 
@@ -1024,6 +1076,15 @@ function buildExtra(): Record<string, unknown> | null {
       e.obfs = obfs
     }
   }
+  if (form.type === 'skyhorse') {
+    if (form.sky_obfs_rotation > 0) e.obfs_rotation_seconds = form.sky_obfs_rotation
+    if (form.sky_masquerade_type && form.sky_masquerade_type !== '404') {
+      e.masquerade = { type: form.sky_masquerade_type, content: form.sky_masquerade_content }
+    }
+    if (form.sky_allow_private || form.sky_allow_loopback) {
+      e.policy = { allow_private: !!form.sky_allow_private, allow_loopback: !!form.sky_allow_loopback }
+    }
+  }
   // QUIC 调优（hysteria2 / tuic 共用）
   if (supportsQUIC.value) {
     if (form.quic_initial_packet > 0) e.initial_packet_size = form.quic_initial_packet
@@ -1238,6 +1299,22 @@ async function openEdit(row: Inbound) {
   form.quic_max_streams = takeNum('max_concurrent_streams')
   form.quic_disable_pmtud = takeBool('disable_path_mtu_discovery')
   form.tfo = takeBool('tcp_fast_open')
+
+  if (form.type === 'skyhorse') {
+    form.sky_obfs_rotation = takeNum('obfs_rotation_seconds')
+    const masq = asObj(extra.masquerade)
+    if (masq) {
+      form.sky_masquerade_type = String(masq.type || '404')
+      form.sky_masquerade_content = String(masq.content || '')
+      delete extra.masquerade
+    }
+    const policy = asObj(extra.policy)
+    if (policy) {
+      form.sky_allow_private = !!policy.allow_private
+      form.sky_allow_loopback = !!policy.allow_loopback
+      delete extra.policy
+    }
+  }
 
   form.extra_raw = Object.keys(extra).length
     ? JSON.stringify(

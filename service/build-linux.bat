@@ -29,11 +29,6 @@ if defined VER set VER=%VER:"=%
 if defined VER set VER=%VER: =%
 if not defined VER set "VER=dev"
 
-set "DEFVER=%VER%"
-set /p "VER=输入版本号（回车默认 %DEFVER%）: "
-if not defined VER set "VER=%DEFVER%"
-set "VER=%VER: =%"
-
 REM ---------- 前置检查: 安装包要带的东西必须都在 ----------
 for %%F in (service\install.sh service\horseui.service service\README-install.txt) do (
   if not exist "%%F" (
@@ -103,7 +98,7 @@ for %%A in (%ARCHLIST%) do (
   set "GOFLAGS=-mod=mod"
   set "GOPROXY=https://goproxy.cn,direct"
   set "CGO_ENABLED=0"
-  go build -trimpath -ldflags "-s -w -X main.version=%VER%" -o "service\dist\horseui-linux-%%A" ".\back-machine"
+  go build -trimpath -ldflags "-s -w" -o "service\dist\horseui-linux-%%A" ".\back-machine"
   if errorlevel 1 (
     echo [错误] linux/%%A 编译失败
     goto :fail
