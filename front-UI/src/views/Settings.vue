@@ -5,6 +5,8 @@
         <el-card shadow="never">
           <template #header>面板与内核配置</template>
           <el-form :model="settings" label-width="140px">
+            <el-collapse v-model="openSection" accordion>
+            <el-collapse-item title="面板与访问" name="access">
             <el-form-item label="面板监听地址">
               <el-input v-model="settings.panel_listen" placeholder="留空使用启动参数（如 0.0.0.0:8080）" />
               <div class="hint">
@@ -23,6 +25,8 @@
             <el-form-item label="订阅路径前缀">
               <el-input v-model="settings.sub_path" placeholder="/sub" />
             </el-form-item>
+            </el-collapse-item>
+            <el-collapse-item title="端口池" name="pool">
             <el-form-item label="端口池区间">
               <el-input v-model="settings.port_pool_start" style="width: 120px" placeholder="10000" />
               <span style="margin: 0 8px">—</span>
@@ -31,6 +35,8 @@
                 新建入站时从该区间自动分配可用端口；建议避开 1-1024 与常用服务端口。
               </div>
             </el-form-item>
+            </el-collapse-item>
+            <el-collapse-item title="内核与统计" name="core">
             <el-form-item label="Clash API 监听">
               <el-input v-model="settings.clash_listen" placeholder="127.0.0.1:9090" />
             </el-form-item>
@@ -56,6 +62,8 @@
             <el-form-item label="统计 gRPC 监听">
               <el-input v-model="settings.v2ray_listen" placeholder="127.0.0.1:9091（仅 V2Ray 方式使用）" />
             </el-form-item>
+            </el-collapse-item>
+            <el-collapse-item title="日志与测速" name="logs">
             <el-form-item label="日志级别">
               <el-select v-model="settings.log_level" style="width: 200px">
                 <el-option v-for="l in ['trace', 'debug', 'info', 'warn', 'error']" :key="l" :label="l" :value="l" />
@@ -71,6 +79,8 @@
                 <el-link type="primary" style="margin-left: 8px" @click="settings.test_url = 'http://connectivitycheck.platform.hicloud.com/generate_204'">hicloud</el-link>
               </div>
             </el-form-item>
+            </el-collapse-item>
+            <el-collapse-item title="证书、DNS 与路由" name="advanced">
             <el-form-item label="ACME 邮箱">
               <el-input v-model="settings.acme_email" placeholder="用于 Let's Encrypt 证书申请" />
             </el-form-item>
@@ -86,7 +96,8 @@
               />
             </el-form-item>
 
-            <el-divider content-position="left">广告过滤</el-divider>
+            </el-collapse-item>
+            <el-collapse-item title="广告过滤" name="adblock">
             <el-form-item label="启用广告过滤">
               <el-switch v-model="settings.adblock_enable" active-value="1" inactive-value="0" />
               <div class="hint">
@@ -135,7 +146,8 @@
               </div>
             </el-form-item>
 
-            <el-divider content-position="left">安全设置</el-divider>
+            </el-collapse-item>
+            <el-collapse-item title="安全设置" name="security">
             <el-form-item label="面板 HTTPS">
               <el-select v-model="settings.panel_tls_enable" style="width: 200px">
                 <el-option label="关闭（HTTP）" value="0" />
@@ -158,8 +170,11 @@
             </el-form-item>
             <el-form-item label="客户端证书指纹">
               <div class="fp-box">
-                <span v-if="panelCert?.sha256" class="fp">{{ panelCert.sha256 }}</span>
+                <span v-if="panelCert?.sha256" class="fp">{{ fingerprintVisible ? panelCert.sha256 : maskedFingerprint }}</span>
                 <span v-else class="hint" style="margin-top: 0">面板证书未加载</span>
+                <el-button v-if="panelCert?.sha256" size="small" @click="toggleFingerprint">
+                  {{ fingerprintVisible ? '隐藏' : '显示' }}
+                </el-button>
                 <el-button v-if="panelCert?.sha256" size="small" @click="copyFingerprint">复制</el-button>
                 <el-button size="small" @click="loadPanelCert">刷新</el-button>
               </div>
@@ -200,7 +215,8 @@
               </div>
             </el-form-item>
 
-            <el-divider content-position="left">行为抹除（抗识别）</el-divider>
+            </el-collapse-item>
+            <el-collapse-item title="行为抹除（抗识别）" name="behavior">
             <el-form-item label="启用行为抹除">
               <el-switch v-model="settings.behavior_mask" active-value="1" inactive-value="0" />
               <div class="hint">
@@ -236,6 +252,9 @@
               </div>
             </el-form-item>
 
+            </el-collapse-item>
+            </el-collapse>
+
             <el-form-item>
               <el-button type="primary" :loading="saving" @click="save">保存并应用</el-button>
             </el-form-item>
@@ -258,6 +277,39 @@
             </el-form-item>
           </el-form>
         </el-card>
+
+        <el-card shadow="never" style="margin-top: 12px">
+          <template #header>两步验证（2FA）</template>
+          <div v-if="twoFA.enabled">
+            <el-tag type="success" size="small">已启用</el-tag>
+            <span class="hint" style="margin-left: 8px">剩余恢复码 {{ twoFA.recovery_codes }} 个</span>
+            <div class="hint" style="margin-top: 8px">登录时需要输入身份验证器中的 6 位动态码。</div>
+            <el-button type="danger" plain size="small" style="margin-top: 10px" @click="disable2FA">关闭两步验证</el-button>
+          </div>
+          <div v-else>
+            <div class="hint">启用后，登录需要密码 + 动态码，防止密码泄露后被直接登录。</div>
+            <el-button type="primary" size="small" style="margin-top: 10px" @click="start2FA">启用两步验证</el-button>
+          </div>
+        </el-card>
+
+        <el-dialog v-model="twoDialog" title="启用两步验证" width="480px" :close-on-click-modal="false">
+          <div class="hint">用身份验证器（Google Authenticator、Microsoft Authenticator、1Password 等）扫描或手动添加：</div>
+          <el-input :model-value="twoSecret" readonly style="margin-top: 10px" />
+          <div class="hint" style="margin-top: 6px; word-break: break-all">{{ twoURI }}</div>
+          <el-input v-model="twoCode" placeholder="输入动态码完成启用" maxlength="6" style="margin-top: 12px" />
+          <template #footer>
+            <el-button @click="twoDialog = false">取消</el-button>
+            <el-button type="primary" :loading="twoBusy" @click="confirm2FA">确认启用</el-button>
+          </template>
+        </el-dialog>
+
+        <el-dialog v-model="recoveryDialog" title="恢复码" width="480px" :close-on-click-modal="false">
+          <div class="hint">这些恢复码只显示一次，请离线保存；每个只能用一次。</div>
+          <pre class="recovery-list">{{ recoveryCodes.join('\n') }}</pre>
+          <template #footer>
+            <el-button type="primary" @click="recoveryDialog = false">我已保存</el-button>
+          </template>
+        </el-dialog>
 
         <el-card shadow="never" style="margin-top: 12px">
           <template #header>
@@ -337,6 +389,7 @@ import { useAuthStore } from '@/store/auth'
 
 const auth = useAuthStore()
 const saving = ref(false)
+const openSection = ref('access')
 const changing = ref(false)
 const certs = ref<Certificate[]>([])
 
@@ -354,6 +407,30 @@ interface PanelCertInfo {
   warning?: string
 }
 const panelCert = ref<PanelCertInfo | null>(null)
+const fingerprintVisible = ref(false)
+const maskedFingerprint = '••••••••••••••••••••••••••••••••'
+let fingerprintTimer: number | undefined
+
+function toggleFingerprint() {
+  fingerprintVisible.value = !fingerprintVisible.value
+  if (fingerprintTimer) window.clearTimeout(fingerprintTimer)
+  if (fingerprintVisible.value) {
+    // 防止录屏/肩窥：10 秒后自动遮回。
+    fingerprintTimer = window.setTimeout(() => {
+      fingerprintVisible.value = false
+    }, 10000)
+  }
+}
+
+// ---- 两步验证（2FA） ----
+const twoFA = reactive({ enabled: false, recovery_codes: 0 })
+const twoDialog = ref(false)
+const twoSecret = ref('')
+const twoURI = ref('')
+const twoCode = ref('')
+const twoBusy = ref(false)
+const recoveryDialog = ref(false)
+const recoveryCodes = ref<string[]>([])
 
 // ---- 系统调优（弱网优化） ----
 const tune = ref<TuneReport | null>(null)
@@ -581,11 +658,75 @@ async function changePwd() {
   }
 }
 
+// ---- 两步验证（2FA） ----
+async function load2FA() {
+  try {
+    const r = await api.get<{ enabled: boolean; recovery_codes: number }>('/api/auth/2fa')
+    twoFA.enabled = !!r.enabled
+    twoFA.recovery_codes = Number(r.recovery_codes || 0)
+  } catch {
+    /* 忽略：未登录时由拦截器处理 */
+  }
+}
+
+async function start2FA() {
+  try {
+    const p = await ElMessageBox.prompt('请输入当前密码', '启用两步验证', {
+      inputType: 'password',
+      inputPlaceholder: '当前密码',
+    })
+    const r = await api.post<{ secret: string; uri: string }>('/api/auth/2fa/setup', { password: p.value })
+    twoSecret.value = r.secret
+    twoURI.value = r.uri
+    twoCode.value = ''
+    twoDialog.value = true
+  } catch {
+    /* 用户取消 */
+  }
+}
+
+async function confirm2FA() {
+  const code = twoCode.value.trim()
+  if (!/^\d{6}$/.test(code)) {
+    ElMessage.warning('请输入 6 位动态码')
+    return
+  }
+  twoBusy.value = true
+  try {
+    const r = await api.post<{ recovery_codes: string[] }>('/api/auth/2fa/enable', { code })
+    recoveryCodes.value = r.recovery_codes || []
+    twoDialog.value = false
+    recoveryDialog.value = true
+    await load2FA()
+    ElMessage.success('两步验证已启用')
+  } finally {
+    twoBusy.value = false
+  }
+}
+
+async function disable2FA() {
+  try {
+    const p = await ElMessageBox.prompt('请输入当前密码', '关闭两步验证', {
+      inputType: 'password',
+      inputPlaceholder: '当前密码',
+    })
+    const c = await ElMessageBox.prompt('请输入动态码或恢复码', '关闭两步验证', {
+      inputPlaceholder: '6 位动态码或恢复码',
+    })
+    await api.post('/api/auth/2fa/disable', { password: p.value, code: c.value })
+    await load2FA()
+    ElMessage.success('两步验证已关闭')
+  } catch {
+    /* 用户取消 */
+  }
+}
+
 onMounted(() => {
   load()
   loadCerts()
   loadPanelCert()
   loadTune()
+  load2FA()
 })
 </script>
 
@@ -663,5 +804,42 @@ onMounted(() => {
   font-size: 14px;
   font-weight: 600;
   color: #303133;
+}
+
+.recovery-list {
+  margin-top: 12px;
+  padding: 12px;
+  background: #f5f7fa;
+  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 14px;
+  line-height: 1.8;
+  color: #303133;
+  white-space: pre-wrap;
+}
+
+.settings-collapse {
+  border: none;
+}
+
+.settings-collapse :deep(.el-collapse-item) {
+  margin-bottom: 10px;
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.settings-collapse :deep(.el-collapse-item__header) {
+  padding: 0 14px;
+  font-weight: 600;
+  background: #fafafa;
+}
+
+.settings-collapse :deep(.el-collapse-item__wrap) {
+  padding: 0 14px;
+}
+
+.settings-collapse :deep(.el-collapse-item__content) {
+  padding-bottom: 8px;
 }
 </style>

@@ -164,6 +164,7 @@ func (a *App) routes() {
 
 	// 无需鉴权。
 	api.POST("/auth/login", a.handleLogin)
+	api.POST("/auth/login/2fa", a.handleLogin2FA)
 
 	// 需要鉴权。
 	auth := api.Group("")
@@ -172,6 +173,10 @@ func (a *App) routes() {
 		auth.GET("/auth/profile", a.handleProfile)
 		auth.POST("/auth/logout", a.handleLogout)
 		auth.POST("/auth/password", a.handleChangePassword)
+		auth.GET("/auth/2fa", a.handleTOTPStatus)
+		auth.POST("/auth/2fa/setup", a.handleTOTPSetup)
+		auth.POST("/auth/2fa/enable", a.handleTOTPEnable)
+		auth.POST("/auth/2fa/disable", a.handleTOTPDisable)
 
 		auth.GET("/inbounds", a.listInbounds)
 		auth.POST("/inbounds", a.createInbound)

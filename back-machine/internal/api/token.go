@@ -15,6 +15,8 @@ type Claims struct {
 	Username string `json:"u"`
 	// TokenVersion 与 Admin.TokenVersion 对应，改密/登出后旧令牌立即失效。
 	TokenVersion int `json:"tv"`
+	// Purpose 非空时表示临时令牌（例如 2FA challenge），不能当会话令牌使用。
+	Purpose string `json:"p,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -24,9 +26,15 @@ func (a *App) jwtSecret() []byte {
 
 // signToken 签发登录令牌。
 func (a *App) signToken(username string, tokenVersion int, ttl time.Duration) (string, error) {
+	return a.signTokenWithPurpose(username, tokenVersion, ttl, "")
+}
+
+// signTokenWithPurpose 签发带用途的令牌；purpose 非空时只能用于对应步骤。
+func (a *App) signTokenWithPurpose(username string, tokenVersion int, ttl time.Duration, purpose string) (string, error) {
 	claims := Claims{
 		Username:     username,
 		TokenVersion: tokenVersion,
+		Purpose:      purpose,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   username,
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(ttl)),

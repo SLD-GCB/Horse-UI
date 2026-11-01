@@ -16,7 +16,7 @@ func (a *App) authMiddleware() gin.HandlerFunc {
 			return
 		}
 		claims, err := a.parseToken(token)
-		if err != nil {
+		if err != nil || claims.Purpose != "" {
 			unauthorized(c, "登录已失效，请重新登录")
 			c.Abort()
 			return

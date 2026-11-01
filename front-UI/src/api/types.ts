@@ -215,6 +215,8 @@ export interface LoginResult {
   version: string
   must_change?: boolean
   weak_password?: boolean
+  two_factor_required?: boolean
+  challenge?: string
 }
 
 export interface Profile {
