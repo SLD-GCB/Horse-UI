@@ -23,6 +23,8 @@ import (
 type loginReq struct {
 	Username string `json:"username" binding:"required"`
 	Password string `json:"password" binding:"required"`
+	// Code 可选：面板启用 2FA 后，登录页可以直接带上 6 位动态码或恢复码。
+	Code string `json:"code"`
 }
 
 func (a *App) handleLogin(c *gin.Context) {
@@ -61,6 +63,26 @@ func (a *App) handleLogin(c *gin.Context) {
 		return
 	}
 	if admin.TOTPEnabled {
+		code := strings.TrimSpace(req.Code)
+		if code != "" {
+			if !a.verifySecondFactor(admin, code) {
+				a.loginFails.Fail(userKey, a.loginMaxFails())
+				a.recordAudit(model.AuditLog{
+					Username: admin.Username, IP: c.ClientIP(), Method: c.Request.Method,
+					Path: c.FullPath(), Action: "login", Status: http.StatusUnauthorized,
+					Detail: "动态码错误", CreatedAt: time.Now(),
+				})
+				unauthorized(c, "动态码错误或已使用")
+				return
+			}
+			if err := a.db.Save(admin).Error; err != nil {
+				serverError(c, err)
+				return
+			}
+			a.loginFails.Reset(userKey)
+			a.issueSession(c, admin, req.Password)
+			return
+		}
 		challenge, err := a.signTokenWithPurpose(admin.Username, max(admin.TokenVersion, 1), 5*time.Minute, "2fa")
 		if err != nil {
 			serverError(c, err)
@@ -233,16 +255,7 @@ func (a *App) handleLogin2FA(c *gin.Context) {
 	}
 
 	code := strings.TrimSpace(req.Code)
-	passed := false
-	if strings.Contains(code, "-") {
-		passed = a.consumeRecovery(admin, code)
-	} else {
-		step, ok := totp.Validate(admin.TOTPSecret, code, time.Now(), 1)
-		if ok && step > admin.TOTPLastStep {
-			admin.TOTPLastStep = step
-			passed = true
-		}
-	}
+	passed := a.verifySecondFactor(admin, code)
 	if !passed {
 		a.loginFails.Fail(userKey, a.loginMaxFails())
 		a.recordAudit(model.AuditLog{
@@ -407,8 +420,24 @@ func (a *App) handleTOTPDisable(c *gin.Context) {
 	ok(c, nil)
 }
 
-func hashRecovery(code string) string {
-	sum := sha256.Sum256([]byte(strings.ToLower(strings.TrimSpace(code))))
+// verifySecondFactor 校验动态码或恢复码；动态码会记录时间步防止重放。
+func (a *App) verifySecondFactor(admin *model.Admin, code string) bool {
+	code = strings.TrimSpace(code)
+	if code == "" {
+		return false
+	}
+	if strings.Contains(code, "-") {
+		return a.consumeRecovery(admin, code)
+	}
+	step, ok := totp.Validate(admin.TOTPSecret, code, time.Now(), 1)
+	if !ok || step <= admin.TOTPLastStep {
+		return false
+	}
+	admin.TOTPLastStep = step
+	return true
+}
+
+func hashRecovery(code string) string {	sum := sha256.Sum256([]byte(strings.ToLower(strings.TrimSpace(code))))
 	return hex.EncodeToString(sum[:])
 }
 

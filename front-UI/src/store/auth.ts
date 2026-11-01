@@ -14,8 +14,8 @@ export const useAuthStore = defineStore('auth', {
     loggedIn: (state) => !!state.token,
   },
   actions: {
-    async login(username: string, password: string) {
-      const res = await api.post<LoginResult>('/api/auth/login', { username, password })
+    async login(username: string, password: string, code = '') {
+      const res = await api.post<LoginResult>('/api/auth/login', { username, password, code })
       if (res.two_factor_required) {
         return res
       }
