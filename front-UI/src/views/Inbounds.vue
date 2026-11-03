@@ -1542,17 +1542,19 @@ async function openEdit(row: Inbound) {
     form.tuic_zero_rtt = !!extra.zero_rtt_handshake
     delete extra.zero_rtt_handshake
   }
-  if (extra.ignore_client_bandwidth !== undefined) {
-    form.hy2_ignore_bw = !!extra.ignore_client_bandwidth
-    delete extra.ignore_client_bandwidth
-  }
-  if (extra.bbr_profile !== undefined) {
-    form.hy2_bbr_profile = String(extra.bbr_profile)
-    delete extra.bbr_profile
-  }
-  if (extra.brutal_debug !== undefined) {
-    form.hy2_brutal_debug = !!extra.brutal_debug
-    delete extra.brutal_debug
+  if (form.type === 'hysteria2') {
+    if (extra.ignore_client_bandwidth !== undefined) {
+      form.hy2_ignore_bw = !!extra.ignore_client_bandwidth
+      delete extra.ignore_client_bandwidth
+    }
+    if (extra.bbr_profile !== undefined) {
+      form.hy2_bbr_profile = String(extra.bbr_profile)
+      delete extra.bbr_profile
+    }
+    if (extra.brutal_debug !== undefined) {
+      form.hy2_brutal_debug = !!extra.brutal_debug
+      delete extra.brutal_debug
+    }
   }
 
   // ---- 弱网调优字段回填（顺带从 extra 里剔除，避免重复落进 extra_raw） ----
