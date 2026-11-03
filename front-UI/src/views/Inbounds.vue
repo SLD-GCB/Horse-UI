@@ -1170,6 +1170,7 @@ function hasTLS(row: Inbound) {
 }
 
 function transportLabel(row: Inbound) {
+  if (row.type === 'skyhorse') return 'udp'
   const tr = asObj(row.transport)
   return tr && tr.type ? String(tr.type) : 'tcp'
 }
