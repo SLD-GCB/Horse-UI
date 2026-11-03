@@ -1,0 +1,14 @@
+[36mINFO[0m[0000] inbound/socks[socks-in]: tcp server started at 127.0.0.1:21080
+[36mINFO[0m[0000] network: updated default interface WLAN, index 21
+[36mINFO[0m[0000] sing-box started (0.03s)
+[36mINFO[0m[0000] network: updated network environment: gateway 192.168.2.1, gateway_mac ec:31:4a:03:db:6c
+[36mINFO[0m[0002] [[38;5;42m3962061594[0m 0ms] inbound/socks[socks-in]: inbound connection from 127.0.0.1:54466
+[36mINFO[0m[0002] [[38;5;42m3962061594[0m 15ms] inbound/socks[socks-in]: inbound packet connection to 127.0.0.1:28081
+[36mINFO[0m[0002] [[38;5;223m934989519[0m 0ms] inbound/socks[socks-in]: inbound connection from 127.0.0.1:54471
+[36mINFO[0m[0002] [[38;5;223m934989519[0m 6ms] inbound/socks[socks-in]: inbound packet connection to 127.0.0.1:28081
+[36mINFO[0m[0002] [[38;5;36m1284756971[0m 0ms] inbound/socks[socks-in]: inbound connection from 127.0.0.1:54473
+[36mINFO[0m[0002] [[38;5;36m1284756971[0m 1ms] inbound/socks[socks-in]: inbound packet connection to 127.0.0.1:28081
+[36mINFO[0m[0002] [[38;5;178m1292702370[0m 0ms] inbound/socks[socks-in]: inbound connection from 127.0.0.1:54475
+[36mINFO[0m[0002] [[38;5;178m1292702370[0m 3ms] inbound/socks[socks-in]: inbound packet connection to 127.0.0.1:28081
+[36mINFO[0m[0002] [[38;5;77m1402296637[0m 0ms] inbound/socks[socks-in]: inbound connection from 127.0.0.1:54476
+[36mINFO[0m[0002] [[38;5;77m1402296637[0m 2ms] inbound/socks[socks-in]: inbound packet connection to 127.0.0.1:28081

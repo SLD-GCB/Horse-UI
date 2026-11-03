@@ -268,6 +268,33 @@ func BuildShareLink(server string, ib model.Inbound, cl model.Client) string {
 		}
 		return fmt.Sprintf("hysteria2://%s@%s:%d?%s#%s", url.QueryEscape(cl.Password), server, ib.Port, q.Encode(), name)
 
+	case model.ProtoFastHorse:
+		obj := map[string]any{
+			"type": "fasthorse", "tag": cl.Name, "server": server, "server_port": ib.Port,
+			"username": fastHorseUsername(cl), "password": cl.Password,
+			"obfs": map[string]any{"password": ib.ObfsPassword},
+		}
+		if tls.Enabled {
+			tlsObj := map[string]any{"enabled": true}
+			if tls.ServerName != "" {
+				tlsObj["server_name"] = tls.ServerName
+			}
+			if ib.Insecure {
+				tlsObj["insecure"] = true
+			}
+			obj["tls"] = tlsObj
+		}
+		if extra := parseObj(ib.Extra); extra != nil {
+			if v, ok := extra["gate"]; ok {
+				obj["gate"] = v
+			}
+			if v, ok := extra["server_ports"]; ok {
+				obj["server_ports"] = v
+			}
+		}
+		b, _ := json.Marshal(obj)
+		return "fasthorse://" + base64.RawURLEncoding.EncodeToString(b)
+
 	case model.ProtoSkyHorse:
 		return ""
 
@@ -553,17 +580,57 @@ func buildSingboxOutbound(server string, ib model.Inbound, cl model.Client) map[
 		}
 		return o
 
+	case model.ProtoFastHorse:
+		o := base("fasthorse")
+		o["username"] = fastHorseUsername(cl)
+		o["password"] = cl.Password
+		obfs := map[string]any{"password": ib.ObfsPassword}
+		extra := parseObj(ib.Extra)
+		if extra != nil {
+			if v, ok := extra["obfs"]; ok {
+				o["obfs"] = v
+			} else {
+				o["obfs"] = obfs
+			}
+			if v, ok := extra["gate"]; ok {
+				o["gate"] = v
+			}
+			if v, ok := extra["server_ports"]; ok {
+				o["server_ports"] = v
+			}
+			if v, ok := extra["connections"]; ok {
+				o["connections"] = v
+			}
+		} else {
+			o["obfs"] = obfs
+		}
+		if t := tlsObj(nil); t != nil {
+			o["tls"] = t
+		}
+		return o
+
 	case model.ProtoSkyHorse:
 		o := base("skyhorse")
 		o["uuid"] = cl.UUID
 		o["password"] = cl.Password
 		o["obfs_password"] = ib.ObfsPassword
 		if extra := parseObj(ib.Extra); extra != nil {
-			if v, ok := extra["obfs_rotation_seconds"]; ok {
-				o["obfs_rotation_seconds"] = v
+			for _, key := range []string{
+				"obfs_rotation_seconds", "obfs_tolerance_seconds",
+				"connections", "max_connections", "max_streams_per_connection",
+				"port_rotate_seconds", "server_ports", "node_id", "obfs_keys",
+				"prewarm", "transport",
+			} {
+				if v, ok := extra[key]; ok {
+					o[key] = v
+				}
 			}
-			if v, ok := extra["obfs_tolerance_seconds"]; ok {
-				o["obfs_tolerance_seconds"] = v
+			if _, ok := o["server_ports"]; !ok {
+				if value, ok := extra["port_range"].(string); ok {
+					if ports := portStrings(value); len(ports) > 0 {
+						o["server_ports"] = ports
+					}
+				}
 			}
 		}
 		if ib.UpMbps > 0 {
@@ -591,6 +658,14 @@ func buildSingboxOutbound(server string, ib model.Inbound, cl model.Client) map[
 	return nil
 }
 
+// fastHorseUsername 返回协议认证用户名，节点显示名不参与认证。
+func fastHorseUsername(cl model.Client) string {
+	if cl.Username != "" {
+		return cl.Username
+	}
+	return cl.Name
+}
+
 // nodeName 生成节点名：单入站保持用户名，多入站追加入站标识以免重名。
 func nodeName(base string, ib model.Inbound, multi bool) string {
 	if !multi {
@@ -605,6 +680,7 @@ func BuildShareLinks(server string, ibs []model.Inbound, cl model.Client) []stri
 	out := make([]string, 0, len(ibs))
 	for _, ib := range ibs {
 		c := cl
+		c.Username = cl.Name
 		c.Name = nodeName(cl.Name, ib, multi)
 		if l := BuildShareLink(server, ib, c); l != "" {
 			out = append(out, l)
@@ -682,6 +758,7 @@ func BuildSingboxClientConfig(server string, ibs []model.Inbound, cl model.Clien
 	tags := make([]string, 0, len(ibs))
 	for _, ib := range ibs {
 		c := cl
+		c.Username = cl.Name
 		c.Name = nodeName(cl.Name, ib, multi)
 		ob := BuildSingboxOutbound(server, ib, c)
 		if ob == nil {
@@ -769,6 +846,7 @@ func BuildClashConfig(server string, ibs []model.Inbound, cl model.Client, mask 
 	names := make([]string, 0, len(ibs))
 	for _, ib := range ibs {
 		c := cl
+		c.Username = cl.Name
 		c.Name = nodeName(cl.Name, ib, multi)
 		p := BuildClashProxy(server, ib, c)
 		if p == nil {
@@ -813,4 +891,42 @@ func BuildClashConfig(server string, ibs []model.Inbound, cl model.Client, mask 
 			"MATCH,PROXY",
 		},
 	}
+}
+
+func portStrings(value string) []string {
+	seen := make(map[int]bool)
+	var out []string
+	add := func(port int) {
+		if port < 1 || port > 65535 || seen[port] || len(out) >= 256 {
+			return
+		}
+		seen[port] = true
+		out = append(out, strconv.Itoa(port))
+	}
+	for _, part := range strings.FieldsFunc(value, func(r rune) bool {
+		return r == ',' || r == ' ' || r == '\t' || r == '\n'
+	}) {
+		start, end, ok := strings.Cut(part, ":")
+		if !ok {
+			start, end, ok = strings.Cut(part, "-")
+		}
+		if ok {
+			first, err1 := strconv.Atoi(start)
+			last, err2 := strconv.Atoi(end)
+			if err1 != nil || err2 != nil {
+				continue
+			}
+			if first > last {
+				first, last = last, first
+			}
+			for port := first; port <= last; port++ {
+				add(port)
+			}
+			continue
+		}
+		if port, err := strconv.Atoi(part); err == nil {
+			add(port)
+		}
+	}
+	return out
 }

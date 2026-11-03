@@ -64,7 +64,7 @@
             <el-row :gutter="12">
               <el-col :span="12">
                 <el-form-item label="协议类型">
-                  <el-select v-model="form.type" style="width: 100%">
+                  <el-select v-model="form.type" style="width: 100%" @change="onTypeChange">
                     <el-option v-for="t in typeOptions" :key="t.value" :label="t.label" :value="t.value" />
                   </el-select>
                 </el-form-item>
@@ -279,10 +279,29 @@
                   </el-form-item>
                 </el-col>
                 <el-col :span="12">
-                  <el-form-item label="混淆密码">
-                    <el-input v-model="form.obfs_password" placeholder="留空则不启用混淆">
+                  <el-form-item label="门控密码">
+                    <el-input v-model="form.obfs_password" placeholder="留空则不启用前置门">
                       <template #append><el-button @click="genObfsPassword">生成</el-button></template>
                     </el-input>
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="端口段">
+                    <el-input v-model="form.sky_port_range" placeholder="20000:20010，留空用上面的端口" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="节点 ID">
+                    <el-input v-model="form.sky_node_id" placeholder="hk-01" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="失败行为">
+                    <el-select v-model="form.sky_failure_mode" style="width: 100%">
+                      <el-option label="丢弃" value="drop" />
+                      <el-option label="重置" value="reset" />
+                      <el-option label="关闭" value="close" />
+                    </el-select>
                   </el-form-item>
                 </el-col>
                 <el-col :span="12">
@@ -290,17 +309,36 @@
                     <el-input-number v-model="form.sky_obfs_rotation" :min="0" style="width: 100%" />
                   </el-form-item>
                 </el-col>
+                <el-col :span="12">
+                  <el-form-item label="轮换容忍（秒）">
+                    <el-input-number v-model="form.sky_obfs_tolerance" :min="0" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
               </el-row>
-              <el-form-item label="伪装模式">
-                <el-select v-model="form.sky_masquerade_type" style="width: 240px">
-                  <el-option label="404（默认）" value="404" />
-                  <el-option label="固定内容" value="string" />
-                  <el-option label="本地目录" value="file" />
-                  <el-option label="反向代理站点" value="proxy" />
-                </el-select>
-              </el-form-item>
-              <el-form-item v-if="form.sky_masquerade_type !== '404'" label="伪装内容 / 地址">
-                <el-input v-model="form.sky_masquerade_content" placeholder="string 填 HTML；file 填目录；proxy 填 http://127.0.0.1:8080" />
+              <el-row :gutter="12">
+                <el-col :span="12">
+                  <el-form-item label="初始连接数">
+                    <el-input-number v-model="form.sky_connections" :min="1" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="最大连接数">
+                    <el-input-number v-model="form.sky_max_connections" :min="1" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="单连接流上限">
+                    <el-input-number v-model="form.sky_max_streams" :min="1" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="端口跳跃（秒）">
+                    <el-input-number v-model="form.sky_port_rotate" :min="0" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+              </el-row>
+              <el-form-item label="旧门控密钥（每行一个）">
+                <el-input v-model="form.sky_keys_text" type="textarea" :rows="3" placeholder="用于轮换期间的旧密钥，可留空" />
               </el-form-item>
               <el-form-item label="允许访问私网">
                 <el-switch v-model="form.sky_allow_private" />
@@ -308,7 +346,131 @@
               <el-form-item label="允许访问回环">
                 <el-switch v-model="form.sky_allow_loopback" />
               </el-form-item>
-              <div class="hint">用户需要 UUID 和密码；订阅会下发自签 insecure 或 pin。</div>
+              <el-form-item label="允许端口（逗号分隔，留空全部）">
+                <el-input v-model="form.sky_allowed_ports" placeholder="80,443,8000-8100" />
+              </el-form-item>
+              <el-form-item label="拒绝网段（每行一个 CIDR）">
+                <el-input v-model="form.sky_denied_cidrs" type="textarea" :rows="2" />
+              </el-form-item>
+              <el-form-item label="允许网段（每行一个 CIDR，留空全部）">
+                <el-input v-model="form.sky_allowed_cidrs" type="textarea" :rows="2" />
+              </el-form-item>
+              <el-row :gutter="12">
+                <el-col :span="12">
+                  <el-form-item label="每 IP 最大连接数">
+                    <el-input-number v-model="form.sky_max_conn_per_ip" :min="0" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="认证失败上限">
+                    <el-input-number v-model="form.sky_max_auth_fails" :min="0" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="失败窗口（秒）">
+                    <el-input-number v-model="form.sky_auth_window" :min="0" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="封禁（秒）">
+                    <el-input-number v-model="form.sky_auth_block" :min="0" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+              </el-row>
+              <el-row :gutter="12">
+                <el-col :span="12">
+                  <el-form-item label="忽略客户端带宽">
+                    <el-switch v-model="form.sky_ignore_bw" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="BBR 配置">
+                    <el-select v-model="form.sky_bbr_profile" style="width: 100%">
+                      <el-option label="standard" value="standard" />
+                      <el-option label="conservative" value="conservative" />
+                      <el-option label="aggressive" value="aggressive" />
+                    </el-select>
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="禁用丢包补偿">
+                    <el-switch v-model="form.sky_disable_loss" />
+                  </el-form-item>
+                </el-col>
+              </el-row>
+              <div class="hint">用户需要 UUID 和密码；未认证连接直接关闭。</div>
+            </template>
+
+            <template v-else-if="form.type === 'fasthorse'">
+              <el-row :gutter="12">
+                <el-col :span="12">
+                  <el-form-item label="混淆密码">
+                    <el-input v-model="form.obfs_password" placeholder="必填">
+                      <template #append><el-button @click="genObfsPassword">生成</el-button></template>
+                    </el-input>
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="端口段">
+                    <el-input v-model="form.fast_port_range" placeholder="20000:20010，留空用上面的端口" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="8">
+                  <el-form-item label="轮换（秒）">
+                    <el-input-number v-model="form.fast_rotation" :min="0" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="8">
+                  <el-form-item label="容忍（秒）">
+                    <el-input-number v-model="form.fast_tolerance" :min="0" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="8">
+                  <el-form-item label="填充到（字节）">
+                    <el-input-number v-model="form.fast_pad_to" :min="-1" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="8">
+                  <el-form-item label="节点 ID">
+                    <el-input v-model="form.fast_node_id" placeholder="hk-01" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="8">
+                  <el-form-item label="失败行为">
+                    <el-select v-model="form.fast_failure_mode" style="width: 100%">
+                      <el-option label="drop（超时）" value="drop" />
+                      <el-option label="reset（RST）" value="reset" />
+                      <el-option label="close（FIN）" value="close" />
+                    </el-select>
+                  </el-form-item>
+                </el-col>
+                <el-col :span="8">
+                  <el-form-item label="失败延迟（毫秒）">
+                    <el-input-number v-model="form.fast_failure_delay" :min="0" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+              </el-row>
+              <el-form-item label="旧密钥版本">
+                <el-table :data="form.fast_keys" size="small" style="width: 100%">
+                  <el-table-column label="ID" width="120">
+                    <template #default="{ row }">
+                      <el-input-number v-model="row.id" :min="1" :max="255" controls-position="right" style="width: 100%" />
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="密码">
+                    <template #default="{ row }">
+                      <el-input v-model="row.password" placeholder="旧混淆密码" />
+                    </template>
+                  </el-table-column>
+                  <el-table-column width="80">
+                    <template #default="{ $index }">
+                      <el-button link type="danger" @click="form.fast_keys.splice($index, 1)">删除</el-button>
+                    </template>
+                  </el-table-column>
+                </el-table>
+                <el-button style="margin-top: 6px" @click="form.fast_keys.push({ id: 1, password: '' })">添加旧密钥</el-button>
+              </el-form-item>
+              <div class="hint">用户使用 username / password；旧密钥用于密码轮换过渡。</div>
             </template>
 
             <template v-else-if="form.type === 'tuic'">
@@ -678,7 +840,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { api } from '@/api'
 import type { Certificate, Inbound, PortPool, Presets } from '@/api/types'
@@ -719,6 +881,7 @@ const typeOptions = [
   { label: 'TUIC', value: 'tuic' },
   { label: 'Hysteria2', value: 'hysteria2' },
   { label: 'SkyHorse', value: 'skyhorse' },
+  { label: 'FastHorse', value: 'fasthorse' },
   { label: 'HTTP (H2)', value: 'http' },
 ]
 
@@ -809,11 +972,37 @@ function defaultForm() {
     batch_count: 5,
     batch_step: 1,
 
-    sky_obfs_rotation: 0,
-    sky_masquerade_type: '404',
-    sky_masquerade_content: '',
+    sky_port_range: '',
+    sky_node_id: '',
+    sky_failure_mode: 'drop',
+    sky_obfs_rotation: 300,
+    sky_obfs_tolerance: 60,
+    sky_keys_text: '',
+    sky_connections: 4,
+    sky_max_connections: 16,
+    sky_max_streams: 32,
+    sky_port_rotate: 120,
     sky_allow_private: false,
     sky_allow_loopback: false,
+    sky_allowed_ports: '',
+    sky_denied_cidrs: '',
+    sky_allowed_cidrs: '',
+    sky_max_conn_per_ip: 8,
+    sky_max_auth_fails: 8,
+    sky_auth_window: 60,
+    sky_auth_block: 300,
+    sky_ignore_bw: false,
+    sky_bbr_profile: 'standard',
+    sky_disable_loss: false,
+
+    fast_port_range: '',
+    fast_rotation: 3600,
+    fast_tolerance: 3600,
+    fast_pad_to: 1024,
+    fast_node_id: '',
+    fast_failure_mode: 'drop',
+    fast_failure_delay: 1500,
+    fast_keys: [],
   }
 }
 
@@ -831,7 +1020,7 @@ const supportsQUIC = computed(() => ['hysteria2', 'tuic'].includes(form.type))
 const supportsTFO = computed(() => !!form.type && !supportsQUIC.value)
 // 提供「一键弱网预置」的协议。
 const supportsWeakPreset = computed(() =>
-  ['hysteria2', 'tuic', 'vless', 'vmess', 'trojan'].includes(form.type),
+  ['hysteria2', 'tuic', 'vless', 'vmess', 'trojan', 'skyhorse'].includes(form.type),
 )
 
 /** 一键弱网预置会做什么，随协议变化。 */
@@ -841,6 +1030,9 @@ const weakPresetHint = computed(() => {
   }
   if (form.type === 'tuic') {
     return '将设置拥塞控制 bbr + 心跳 10s。'
+  }
+  if (form.type === 'skyhorse') {
+    return '将应用天马默认配置：4 连接、16 上限、120s 端口跳跃、300s 混淆轮换、guard 封禁，并自动生成门控密码。'
   }
   return '将开启 TCP Fast Open，握手少一次往返（需客户端也支持）。'
 })
@@ -888,16 +1080,58 @@ const listenAddresses = computed(() => {
   return out
 })
 
+/** 从端口池里取一段连续端口 */
+function takePortRange(size: number): number[] | null {
+  const free = (portPool.value?.free || []).slice().sort((a, b) => a - b)
+  let run: number[] = []
+  for (const port of free) {
+    if (!run.length || port === run[run.length - 1] + 1) {
+      run.push(port)
+    } else {
+      run = [port]
+    }
+    if (run.length === size) return run
+  }
+  return null
+}
+
 /** 从端口池里取一个可用端口 */
 function autoPort() {
   const pool = portPool.value
   if (!pool || !pool.free || !pool.free.length) return
+  if (form.type === 'skyhorse' && !form.sky_port_range) {
+    const next = pool.next_range
+    const range = next && next.start > 0
+      ? Array.from({ length: next.end - next.start + 1 }, (_, i) => next.start + i)
+      : takePortRange(10)
+    if (range) {
+      form.port = range[0]
+      form.sky_port_range = `${range[0]}:${range[range.length - 1]}`
+      pool.free = pool.free.filter((x) => !range.includes(x))
+      pool.suggested = pool.free[0] || form.port
+      return
+    }
+  }
   const p = pool.suggested || pool.free[0]
   form.port = p
   // 用掉一个就顺延，避免连续新建拿到同一个
   pool.free = pool.free.filter((x) => x !== p)
   pool.suggested = pool.free[0] || p
 }
+
+function onTypeChange() {
+  if (!form.id && form.type === 'skyhorse' && !form.sky_port_range) {
+    autoPort()
+  }
+}
+
+watch(() => form.type, () => {
+  nextTick(() => {
+    if (!form.id && form.type === 'skyhorse' && !form.sky_port_range) {
+      autoPort()
+    }
+  })
+})
 
 async function loadPortPool() {
   try {
@@ -910,6 +1144,18 @@ async function loadPortPool() {
 /* ---------------- 表格展示 ---------------- */
 
 function asObj(v: unknown): Record<string, unknown> | null {
+  if (typeof v === 'string') {
+    const s = v.trim()
+    if (!s) return null
+    try {
+      const parsed = JSON.parse(s)
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? (parsed as Record<string, unknown>)
+        : null
+    } catch {
+      return null
+    }
+  }
   return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null
 }
 
@@ -1077,17 +1323,57 @@ function buildExtra(): Record<string, unknown> | null {
     }
   }
   if (form.type === 'skyhorse') {
+    if (form.sky_port_range) e.port_range = form.sky_port_range
+    if (form.sky_node_id) e.node_id = form.sky_node_id
+    if (form.sky_failure_mode) e.failure_mode = form.sky_failure_mode
     if (form.sky_obfs_rotation > 0) e.obfs_rotation_seconds = form.sky_obfs_rotation
-    if (form.sky_masquerade_type === 'string') {
-      e.masquerade = { type: 'string', content: form.sky_masquerade_content }
-    } else if (form.sky_masquerade_type === 'file') {
-      e.masquerade = { type: 'file', directory: form.sky_masquerade_content }
-    } else if (form.sky_masquerade_type === 'proxy') {
-      e.masquerade = { type: 'proxy', url: form.sky_masquerade_content }
+    if (form.sky_obfs_tolerance > 0) e.obfs_tolerance_seconds = form.sky_obfs_tolerance
+    const oldKeys = form.sky_keys_text.split('\n').map((v: string) => v.trim()).filter(Boolean)
+    if (oldKeys.length) e.obfs_keys = oldKeys
+    e.connections = form.sky_connections
+    e.max_connections = form.sky_max_connections
+    e.max_streams_per_connection = form.sky_max_streams
+    e.port_rotate_seconds = form.sky_port_rotate
+    const policy: Record<string, unknown> = { allow_private: !!form.sky_allow_private, allow_loopback: !!form.sky_allow_loopback }
+    const ports = form.sky_allowed_ports.split(/[\s,]+/).map((v) => v.trim()).filter(Boolean)
+    if (ports.length) policy.allowed_ports = ports.flatMap((p) => {
+      const m = /^(\d+)-(\d+)$/.exec(p)
+      if (m) {
+        const a = Number(m[1]); const b = Number(m[2]); const out: number[] = []
+        for (let i = Math.min(a, b); i <= Math.max(a, b); i++) out.push(i)
+        return out
+      }
+      return [Number(p)]
+    }).filter((n) => Number.isFinite(n))
+    const denied = form.sky_denied_cidrs.split('\n').map((v) => v.trim()).filter(Boolean)
+    const allowed = form.sky_allowed_cidrs.split('\n').map((v) => v.trim()).filter(Boolean)
+    if (denied.length) policy.denied_cidrs = denied
+    if (allowed.length) policy.allowed_cidrs = allowed
+    e.policy = policy
+    e.guard = {
+      max_connections_per_ip: form.sky_max_conn_per_ip,
+      max_auth_failures: form.sky_max_auth_fails,
+      auth_failure_window_seconds: form.sky_auth_window,
+      auth_block_seconds: form.sky_auth_block,
     }
-    if (form.sky_allow_private || form.sky_allow_loopback) {
-      e.policy = { allow_private: !!form.sky_allow_private, allow_loopback: !!form.sky_allow_loopback }
-    }
+    if (form.sky_ignore_bw) e.ignore_client_bandwidth = true
+    if (form.sky_bbr_profile) e.bbr_profile = form.sky_bbr_profile
+    if (form.sky_disable_loss) e.disable_loss_compensation = true
+  }
+  if (form.type === 'fasthorse') {
+    const obfs: Record<string, unknown> = { password: form.obfs_password }
+    if (form.fast_rotation > 0) obfs.rotation = `${form.fast_rotation}s`
+    if (form.fast_tolerance > 0) obfs.tolerance = `${form.fast_tolerance}s`
+    if (form.fast_pad_to >= 0) obfs.pad_to = form.fast_pad_to
+    const keys = form.fast_keys.filter((k: any) => k.password)
+    if (keys.length) obfs.keys = keys.map((k: any) => ({ id: Number(k.id) || 1, password: k.password }))
+    e.obfs = obfs
+    const gate: Record<string, unknown> = {}
+    if (form.fast_node_id) gate.node_id = form.fast_node_id
+    if (form.fast_failure_mode) gate.failure_mode = form.fast_failure_mode
+    if (form.fast_failure_delay > 0) gate.failure_delay = `${form.fast_failure_delay}ms`
+    if (Object.keys(gate).length) e.gate = gate
+    if (form.fast_port_range) e.listen_port_range = form.fast_port_range
   }
   // QUIC 调优（hysteria2 / tuic 共用）
   if (supportsQUIC.value) {
@@ -1287,14 +1573,16 @@ async function openEdit(row: Inbound) {
     delete extra[key]
     return v
   }
-  const obfsObj = asObj(extra.obfs)
-  if (obfsObj && obfsObj.type === 'gecko') {
-    form.obfs_type = 'gecko'
-    if (obfsObj.password !== undefined) form.obfs_password = String(obfsObj.password)
-    form.hy2_obfs_min_packet = Number(obfsObj.min_packet_size) || 0
-    form.hy2_obfs_max_packet = Number(obfsObj.max_packet_size) || 0
+  if (form.type === 'hysteria2') {
+    const obfsObj = asObj(extra.obfs)
+    if (obfsObj && obfsObj.type === 'gecko') {
+      form.obfs_type = 'gecko'
+      if (obfsObj.password !== undefined) form.obfs_password = String(obfsObj.password)
+      form.hy2_obfs_min_packet = Number(obfsObj.min_packet_size) || 0
+      form.hy2_obfs_max_packet = Number(obfsObj.max_packet_size) || 0
+    }
+    delete extra.obfs
   }
-  delete extra.obfs
   form.quic_initial_packet = takeNum('initial_packet_size')
   form.quic_idle_timeout = takeStr('idle_timeout')
   form.quic_keepalive = takeStr('keep_alive_period')
@@ -1304,19 +1592,115 @@ async function openEdit(row: Inbound) {
   form.quic_disable_pmtud = takeBool('disable_path_mtu_discovery')
   form.tfo = takeBool('tcp_fast_open')
 
+  if (form.type === 'fasthorse') {
+    const durSec = (v: unknown): number => {
+      if (typeof v === 'number') return v
+      const s = String(v ?? '').trim()
+      if (!s) return 0
+      if (/^\d+$/.test(s)) return Number(s)
+      const m = /^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+(?:\.\d+)?)s)?$/.exec(s)
+      if (!m) return 0
+      return Number(m[1] || 0) * 3600 + Number(m[2] || 0) * 60 + Number(m[3] || 0)
+    }
+    const durMs = (v: unknown): number => {
+      if (typeof v === 'number') return v
+      const s = String(v ?? '')
+      const m = /^(\d+)ms$/.exec(s)
+      return m ? Number(m[1]) : durSec(v) * 1000
+    }
+    const obfs = asObj(extra.obfs)
+    if (obfs) {
+      if (obfs.password) form.obfs_password = String(obfs.password)
+      form.fast_rotation = durSec(obfs.rotation)
+      form.fast_tolerance = durSec(obfs.tolerance)
+      form.fast_pad_to = obfs.pad_to === undefined ? 0 : Number(obfs.pad_to)
+      form.fast_keys = Array.isArray(obfs.keys)
+        ? obfs.keys.map((k: any) => ({ id: Number(k.id) || 1, password: String(k.password ?? '') }))
+        : []
+      delete extra.obfs
+    }
+    const gate = asObj(extra.gate)
+    if (gate) {
+      form.fast_node_id = String(gate.node_id ?? '')
+      form.fast_failure_mode = String(gate.failure_mode ?? 'drop')
+      form.fast_failure_delay = durMs(gate.failure_delay)
+      delete extra.gate
+    }
+    if (extra.listen_port_range !== undefined) {
+      form.fast_port_range = String(extra.listen_port_range)
+      delete extra.listen_port_range
+    }
+  }
+
   if (form.type === 'skyhorse') {
-    form.sky_obfs_rotation = takeNum('obfs_rotation_seconds')
-    const masq = asObj(extra.masquerade)
-    if (masq) {
-      form.sky_masquerade_type = String(masq.type || '404')
-      form.sky_masquerade_content = String(masq.content ?? masq.directory ?? masq.url ?? '')
-      delete extra.masquerade
+    if (extra.port_range !== undefined) {
+      form.sky_port_range = String(extra.port_range)
+      delete extra.port_range
+    }
+    if (extra.node_id !== undefined) {
+      form.sky_node_id = String(extra.node_id)
+      delete extra.node_id
+    }
+    if (extra.failure_mode !== undefined) {
+      form.sky_failure_mode = String(extra.failure_mode)
+      delete extra.failure_mode
+    }
+    if (extra.obfs_rotation_seconds !== undefined) {
+      form.sky_obfs_rotation = Number(extra.obfs_rotation_seconds)
+      delete extra.obfs_rotation_seconds
+    }
+    if (extra.obfs_tolerance_seconds !== undefined) {
+      form.sky_obfs_tolerance = Number(extra.obfs_tolerance_seconds)
+      delete extra.obfs_tolerance_seconds
+    }
+    if (Array.isArray(extra.obfs_keys)) {
+      form.sky_keys_text = extra.obfs_keys.map((v: unknown) => String(v)).join('\n')
+      delete extra.obfs_keys
+    }
+    if (extra.connections !== undefined) {
+      form.sky_connections = Number(extra.connections)
+      delete extra.connections
+    }
+    if (extra.max_connections !== undefined) {
+      form.sky_max_connections = Number(extra.max_connections)
+      delete extra.max_connections
+    }
+    if (extra.max_streams_per_connection !== undefined) {
+      form.sky_max_streams = Number(extra.max_streams_per_connection)
+      delete extra.max_streams_per_connection
+    }
+    if (extra.port_rotate_seconds !== undefined) {
+      form.sky_port_rotate = Number(extra.port_rotate_seconds)
+      delete extra.port_rotate_seconds
     }
     const policy = asObj(extra.policy)
     if (policy) {
       form.sky_allow_private = !!policy.allow_private
       form.sky_allow_loopback = !!policy.allow_loopback
+      if (Array.isArray(policy.allowed_ports)) form.sky_allowed_ports = policy.allowed_ports.join(',')
+      if (Array.isArray(policy.denied_cidrs)) form.sky_denied_cidrs = policy.denied_cidrs.join('\n')
+      if (Array.isArray(policy.allowed_cidrs)) form.sky_allowed_cidrs = policy.allowed_cidrs.join('\n')
       delete extra.policy
+    }
+    const guard = asObj(extra.guard)
+    if (guard) {
+      form.sky_max_conn_per_ip = Number(guard.max_connections_per_ip) || 64
+      form.sky_max_auth_fails = Number(guard.max_auth_failures) || 20
+      form.sky_auth_window = Number(guard.auth_failure_window_seconds) || 60
+      form.sky_auth_block = Number(guard.auth_block_seconds) || 300
+      delete extra.guard
+    }
+    if (extra.ignore_client_bandwidth !== undefined) {
+      form.sky_ignore_bw = !!extra.ignore_client_bandwidth
+      delete extra.ignore_client_bandwidth
+    }
+    if (extra.bbr_profile !== undefined) {
+      form.sky_bbr_profile = String(extra.bbr_profile)
+      delete extra.bbr_profile
+    }
+    if (extra.disable_loss_compensation !== undefined) {
+      form.sky_disable_loss = !!extra.disable_loss_compensation
+      delete extra.disable_loss_compensation
     }
   }
 
@@ -1360,6 +1744,24 @@ async function applyWeakNetPreset() {
     } else {
       ElMessage.success('已按模式 A 配好：服务端按真实带宽硬推，丢包不减速')
     }
+    return
+  }
+  if (form.type === 'skyhorse') {
+    form.sky_connections = 4
+    form.sky_max_connections = 16
+    form.sky_max_streams = 32
+    form.sky_port_rotate = 120
+    form.sky_obfs_rotation = 300
+    form.sky_obfs_tolerance = 60
+    form.sky_max_conn_per_ip = 8
+    form.sky_max_auth_fails = 8
+    form.sky_auth_window = 60
+    form.sky_auth_block = 300
+    form.sky_bbr_profile = 'standard'
+    form.sky_ignore_bw = false
+    form.sky_disable_loss = false
+    if (!form.obfs_password) await genObfsPassword()
+    ElMessage.success('已应用天马默认配置：4 连接、16 上限、120s 端口跳跃、300s 混淆轮换、guard 封禁已开启')
     return
   }
   if (form.type === 'tuic') {

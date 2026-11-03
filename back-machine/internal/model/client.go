@@ -7,10 +7,12 @@ type Client struct {
 	ID        uint   `gorm:"primaryKey" json:"id"`
 	InboundID uint   `gorm:"index" json:"inbound_id"`
 	Name      string `gorm:"size:64;index" json:"name"`
-	UUID      string `gorm:"size:64" json:"uuid"`
-	Password  string `gorm:"size:256" json:"password"`
-	Flow      string `gorm:"size:32" json:"flow"`
-	Enable    bool   `json:"enable"`
+	// Username 是协议认证用的原始用户名，不随节点显示名变化。
+	Username string `gorm:"-" json:"-"`
+	UUID     string `gorm:"size:64" json:"uuid"`
+	Password string `gorm:"size:256" json:"password"`
+	Flow     string `gorm:"size:32" json:"flow"`
+	Enable   bool   `json:"enable"`
 
 	QuotaBytes int64 `json:"quota_bytes"` // 0 表示不限流量
 	UsedUp     int64 `json:"used_up"`

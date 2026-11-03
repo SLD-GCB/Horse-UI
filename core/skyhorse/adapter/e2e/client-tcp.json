@@ -1,0 +1,31 @@
+{
+  "log": { "level": "debug" },
+  "inbounds": [
+    {
+      "type": "socks",
+      "tag": "socks-in",
+      "listen": "127.0.0.1",
+      "listen_port": 21080
+    }
+  ],
+  "outbounds": [
+    {
+      "type": "horse2",
+      "tag": "proxy",
+      "server": "127.0.0.1",
+      "server_port": 28443,
+      "carrier": "tcp",
+      "tcp_connections": 4,
+      "username": "alice",
+      "password": "secret",
+      "obfs_password": "0123456789abcdef0123456789abcdef",
+      "tls": {
+        "enabled": true,
+        "server_name": "localhost",
+        "certificate_public_key_sha256": ["fszHh82V9YNRTRRj1xtwPNaL/pTq6zDAIril3aUMuyQ="]
+      }
+    },
+    { "type": "direct", "tag": "direct" }
+  ],
+  "route": { "final": "proxy" }
+}

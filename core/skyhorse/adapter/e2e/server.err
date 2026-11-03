@@ -1,0 +1,9 @@
+[36mINFO[0m[0000] network: updated default interface WLAN, index 21
+[36mINFO[0m[0000] sing-box started (0.03s)
+[36mINFO[0m[0000] network: updated network environment: gateway 192.168.2.1, gateway_mac ec:31:4a:03:db:6c
+[36mINFO[0m[0001] inbound/skyhorse[sky-in]: skyhorse: user alice authenticated
+[36mINFO[0m[0001] outbound/direct[direct]: outbound packet connection
+[36mINFO[0m[0002] inbound/skyhorse[sky-in]: skyhorse: user alice authenticated
+[36mINFO[0m[0002] outbound/direct[direct]: outbound packet connection
+[36mINFO[0m[0002] inbound/skyhorse[sky-in]: skyhorse: user alice authenticated
+[36mINFO[0m[0002] outbound/direct[direct]: outbound packet connection

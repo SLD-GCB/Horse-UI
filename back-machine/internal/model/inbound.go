@@ -11,6 +11,7 @@ const (
 	ProtoTUIC        = "tuic"
 	ProtoHysteria2   = "hysteria2"
 	ProtoSkyHorse    = "skyhorse"
+	ProtoFastHorse   = "fasthorse"
 	ProtoHTTP        = "http"
 )
 

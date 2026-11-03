@@ -16,7 +16,7 @@ func fillClientSecrets(ib model.Inbound, cl *model.Client) error {
 		if cl.UUID == "" {
 			cl.UUID = util.NewUUID()
 		}
-	case model.ProtoTrojan, model.ProtoHysteria2, model.ProtoHTTP:
+	case model.ProtoTrojan, model.ProtoHysteria2, model.ProtoHTTP, model.ProtoFastHorse:
 		if cl.Password == "" {
 			cl.Password = randomPassword()
 		}

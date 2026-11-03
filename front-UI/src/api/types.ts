@@ -207,6 +207,7 @@ export interface PortPool {
   panel: PanelPort[] | null
   free: number[] | null
   suggested: number
+  next_range?: { start: number; end: number } | null
 }
 
 export interface LoginResult {

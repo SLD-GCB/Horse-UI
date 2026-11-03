@@ -144,10 +144,18 @@ func (a *App) clientLinks(c *gin.Context) {
 		}
 	}
 
+	fastLinks := make([]string, 0, len(links))
+	for _, link := range links {
+		if strings.HasPrefix(link, "fasthorse://") {
+			fastLinks = append(fastLinks, link)
+		}
+	}
+
 	ok(c, gin.H{
 		"link":    strings.Join(links, "\n"),
 		"links":   links,
 		"nodes":   len(links),
+		"fasthorse_link": strings.Join(fastLinks, "\n"),
 		"sub_url": a.subURL(c, cl),
 		"qrcode":  qr,
 		"clash":   svc.BuildClashConfig(server, ibs, cl, mask),

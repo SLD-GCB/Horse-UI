@@ -72,6 +72,12 @@ func (a *App) probeInbound(ctx context.Context, ib model.Inbound, cl model.Clien
 	if ob == nil {
 		return 0, fmt.Errorf("该入站类型暂不支持测速")
 	}
+	// 快马测速只在本机回环，纯 Go 客户端直接跳过自签证书校验，不携带面板证书或域名。
+	if ib.Type == model.ProtoFastHorse {
+		if tlsMap, ok := ob["tls"].(map[string]any); ok {
+			tlsMap["insecure"] = true
+		}
+	}
 	tag, _ := ob["tag"].(string)
 	if tag == "" {
 		tag = "proxy"

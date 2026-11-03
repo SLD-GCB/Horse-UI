@@ -228,6 +228,11 @@
                   </template>
                 </el-input>
               </el-form-item>
+              <el-form-item v-if="links.fasthorse_link" label="FastHorse 链接">
+                <el-input v-model="links.fasthorse_link" type="textarea" :rows="3" readonly>
+                  <template #append><el-button @click="copy(links.fasthorse_link)">复制</el-button></template>
+                </el-input>
+              </el-form-item>
               <el-form-item :label="`分享链接(${links.nodes})`">
                 <el-input v-model="links.link" type="textarea" :rows="3" readonly />
               </el-form-item>
@@ -305,7 +310,7 @@ const batchForm = reactive({
 const formType = computed(() => inbounds.value.find((i) => i.id === form.inbound_id)?.type || '')
 const currentInbound = computed(() => inbounds.value.find((i) => i.id === form.inbound_id))
 const needUUID = computed(() => ['vless', 'vmess', 'tuic', 'skyhorse'].includes(formType.value))
-const needPassword = computed(() => ['trojan', 'shadowsocks', 'tuic', 'hysteria2', 'skyhorse', 'http'].includes(formType.value))
+const needPassword = computed(() => ['trojan', 'shadowsocks', 'tuic', 'hysteria2', 'skyhorse', 'fasthorse', 'http'].includes(formType.value))
 const bindableInbounds = computed(() => inbounds.value.filter((ib) => ib.id !== form.inbound_id))
 const batchType = computed(() => inbounds.value.find((i) => i.id === batchForm.inbound_id)?.type || '')
 const batchNeedFlow = computed(() => batchType.value === 'vless')

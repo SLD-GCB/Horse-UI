@@ -1,0 +1,22 @@
+{
+  "log": { "level": "debug" },
+  "inbounds": [ { "type": "socks", "tag": "socks-in", "listen": "127.0.0.1", "listen_port": 21085 } ],
+  "outbounds": [
+    {
+      "type": "skyhorse",
+      "tag": "proxy",
+      "server": "127.0.0.1",
+      "server_port": 29663,
+      "uuid": "alice-1",
+      "password": "secret",
+      "obfs_password": "tianma-obfs-2026",
+      "tls": {
+        "enabled": true,
+        "server_name": "localhost",
+        "certificate_public_key_sha256": ["8EMWDvW4JkY4ZPbLi4sFNZ+M/ipjboGl71vOIuR5kM8="]
+      }
+    },
+    { "type": "direct", "tag": "direct" }
+  ],
+  "route": { "final": "proxy" }
+}

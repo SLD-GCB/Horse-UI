@@ -1,0 +1,20 @@
+{
+  "log": { "level": "debug" },
+  "inbounds": [
+    {
+      "type": "skyhorse",
+      "tag": "sky-in",
+      "listen": "127.0.0.1",
+      "listen_port": 29663,
+      "users": [ { "name": "alice", "uuid": "alice-1", "password": "secret" } ],
+      "obfs_password": "tianma-obfs-2026",
+      "tls": {
+        "enabled": true,
+        "certificate_path": "../tianma/e2e/cert.pem",
+        "key_path": "../tianma/e2e/key.pem"
+      }
+    }
+  ],
+  "outbounds": [ { "type": "direct", "tag": "direct" } ],
+  "route": { "final": "direct" }
+}

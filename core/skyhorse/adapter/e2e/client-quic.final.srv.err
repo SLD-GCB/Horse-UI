@@ -1,0 +1,9 @@
+[36mINFO[0m[0000] network: updated default interface WLAN, index 21
+[36mINFO[0m[0000] sing-box started (0.03s)
+[36mINFO[0m[0000] network: updated network environment: gateway 192.168.2.1, gateway_mac ec:31:4a:03:db:6c
+[36mINFO[0m[0004] inbound/horse2[horse2-in]: horse2: alice -> 127.0.0.1:28080
+[36mINFO[0m[0004] outbound/direct[direct]: outbound connection to 127.0.0.1:28080
+[37mDEBUG[0m[0004] connection: connection upload finished
+[37mDEBUG[0m[0004] connection: connection download finished
+[36mINFO[0m[0004] inbound/horse2[horse2-in]: horse2: udp associate for alice
+[36mINFO[0m[0004] inbound/horse2[horse2-in]: horse2: udp associate for alice

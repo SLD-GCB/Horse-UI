@@ -1,0 +1,10 @@
+{
+    "uuid":  "alice-1",
+    "pin":  "f043160ef5b826463864f6cb8b8b05359f8cfe2a636e81a5ef5bce22e47990cf",
+    "server_port":  29663,
+    "server":  "127.0.0.1",
+    "server_name":  "localhost",
+    "listen":  "127.0.0.1:21084",
+    "password":  "secret",
+    "obfs_password":  "tianma-obfs-2026"
+}

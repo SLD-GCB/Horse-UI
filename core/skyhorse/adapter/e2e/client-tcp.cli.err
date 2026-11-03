@@ -1,0 +1,11 @@
+[36mINFO[0m[0000] inbound/socks[socks-in]: tcp server started at 127.0.0.1:21080
+[36mINFO[0m[0000] network: updated default interface WLAN, index 21
+[36mINFO[0m[0000] sing-box started (0.03s)
+[36mINFO[0m[0000] network: updated network environment: gateway 192.168.2.1, gateway_mac ec:31:4a:03:db:6c
+[36mINFO[0m[0002] [[38;5;226m771247314[0m 0ms] inbound/socks[socks-in]: inbound connection from 127.0.0.1:54237
+[36mINFO[0m[0002] [[38;5;226m771247314[0m 8ms] inbound/socks[socks-in]: inbound connection to 127.0.0.1:28080
+[37mDEBUG[0m[0002] [[38;5;226m771247314[0m 30ms] connection: connection upload finished
+[36mINFO[0m[0002] [[38;5;189m3544218797[0m 0ms] inbound/socks[socks-in]: inbound connection from 127.0.0.1:54241
+[36mINFO[0m[0002] [[38;5;189m3544218797[0m 10ms] inbound/socks[socks-in]: inbound packet connection to 127.0.0.1:28081
+[36mINFO[0m[0002] [[38;5;107m3812809051[0m 0ms] inbound/socks[socks-in]: inbound connection from 127.0.0.1:54245
+[31mERROR[0m[0002] [[38;5;107m3812809051[0m 2ms] inbound/socks[socks-in]: process connection from 127.0.0.1:54245: socks5: read first packet: read udp 127.0.0.1:49947: wsarecvfrom: A message sent on a datagram socket was larger than the internal message buffer or some other network limit, or the buffer used to receive a datagram into was smaller than the datagram itself.

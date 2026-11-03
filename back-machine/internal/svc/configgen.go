@@ -165,6 +165,18 @@ func buildInbound(ib model.Inbound, clients []model.Client, cert *model.Certific
 			f["down_mbps"] = ib.DownMbps
 		}
 
+	case model.ProtoFastHorse:
+		users := make([]map[string]any, 0, len(clients))
+		for _, c := range clients {
+			users = append(users, map[string]any{
+				"username": c.Name, "password": c.Password,
+			})
+		}
+		f["users"] = users
+		if ib.ObfsPassword != "" {
+			f["obfs"] = map[string]any{"password": ib.ObfsPassword}
+		}
+
 	case model.ProtoHTTP:
 		users := make([]map[string]any, 0, len(clients))
 		for _, c := range clients {

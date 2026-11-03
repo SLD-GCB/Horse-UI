@@ -1,43 +1,16 @@
-# ---- 运行数据（数据库 / 证书私钥 / 内核 / 日志）----
-data/
-*.db
-*.db-shm
-*.db-wal
-*.log
-
-# ---- 证书与密钥 ----
-*.pem
-*.key
-*.p12
-
-# ---- 构建与打包产物 ----
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
-HorseUI.exe
-service/dist/
-front-UI/dist/
-
-# ---- 前端依赖 ----
 node_modules/
-
-# ---- 编辑器 / 系统 ----
-.idea/
-.vscode/
-.DS_Store
-Thumbs.db
-
-# ---- Go ----
-*.test
-*.out
-coverage.*
-*.coverprofile
-profile.cov
-go.work
-go.work.sum
-
-# ---- 环境变量 ----
-.env
-.env.*
+front-UI/node_modules/
+service/dist/
+data/bin/
+data/certs/
+data/config.json
+data/logs/
+data/*.db
+data/cache.db
+s-ui/
+*.exe
+*.zip
+*.tar.gz
+*.new
+上下文记录/
+sing-box-*/

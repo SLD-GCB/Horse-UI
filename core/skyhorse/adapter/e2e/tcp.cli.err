@@ -1,0 +1,16 @@
+[36mINFO[0m[0000] inbound/socks[socks-in]: tcp server started at 127.0.0.1:21080
+[36mINFO[0m[0000] network: updated default interface WLAN, index 21
+[36mINFO[0m[0000] sing-box started (0.03s)
+[36mINFO[0m[0000] network: updated network environment: gateway 192.168.2.1, gateway_mac ec:31:4a:03:db:6c
+[36mINFO[0m[0002] [[38;5;229m4096986841[0m 0ms] inbound/socks[socks-in]: inbound connection from 127.0.0.1:64756
+[36mINFO[0m[0002] [[38;5;229m4096986841[0m 7ms] inbound/socks[socks-in]: inbound connection to 127.0.0.1:28080
+[37mDEBUG[0m[0002] [[38;5;229m4096986841[0m 28ms] connection: connection upload finished
+[36mINFO[0m[0002] [[38;5;41m1897272560[0m 0ms] inbound/socks[socks-in]: inbound connection from 127.0.0.1:64760
+[36mINFO[0m[0002] [[38;5;41m1897272560[0m 6ms] inbound/socks[socks-in]: inbound connection to 127.0.0.1:28080
+[37mDEBUG[0m[0002] [[38;5;41m1897272560[0m 27ms] connection: connection upload finished
+[36mINFO[0m[0002] [[38;5;35m1719925523[0m 0ms] inbound/socks[socks-in]: inbound connection from 127.0.0.1:64763
+[36mINFO[0m[0002] [[38;5;35m1719925523[0m 2ms] inbound/socks[socks-in]: inbound connection to 127.0.0.1:28080
+[37mDEBUG[0m[0002] [[38;5;35m1719925523[0m 9ms] connection: connection upload finished
+[36mINFO[0m[0002] [[38;5;68m1850869812[0m 0ms] inbound/socks[socks-in]: inbound connection from 127.0.0.1:64766
+[36mINFO[0m[0002] [[38;5;68m1850869812[0m 2ms] inbound/socks[socks-in]: inbound connection to 127.0.0.1:28080
+[37mDEBUG[0m[0002] [[38;5;68m1850869812[0m 6ms] connection: connection upload finished

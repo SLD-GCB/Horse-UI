@@ -175,7 +175,9 @@
 
             <template v-if="form.type === 'trojan'">
               <el-form-item label="密码">
-                <el-input v-model="form.password" show-password />
+                <el-input v-model="form.password" show-password>
+                  <template #append><el-button @click="genPassword">生成</el-button></template>
+                </el-input>
               </el-form-item>
             </template>
 
@@ -186,7 +188,9 @@
                 </el-select>
               </el-form-item>
               <el-form-item label="密码">
-                <el-input v-model="form.password" show-password />
+                <el-input v-model="form.password" show-password>
+                  <template #append><el-button @click="genPassword">生成</el-button></template>
+                </el-input>
               </el-form-item>
               <el-row :gutter="12">
                 <el-col :span="12">
@@ -211,7 +215,9 @@
 
             <template v-if="form.type === 'hysteria2'">
               <el-form-item label="密码">
-                <el-input v-model="form.password" show-password />
+                <el-input v-model="form.password" show-password>
+                  <template #append><el-button @click="genPassword">生成</el-button></template>
+                </el-input>
               </el-form-item>
               <el-row :gutter="12">
                 <el-col :span="12">
@@ -224,7 +230,9 @@
                 </el-col>
                 <el-col :span="12">
                   <el-form-item label="混淆密码">
-                    <el-input v-model="form.obfs_password" />
+                    <el-input v-model="form.obfs_password">
+                      <template #append><el-button @click="genObfsPassword">生成</el-button></template>
+                    </el-input>
                   </el-form-item>
                 </el-col>
               </el-row>
@@ -244,23 +252,65 @@
 
             <template v-if="form.type === 'skyhorse'">
               <el-form-item label="UUID">
-                <el-input v-model="form.uuid" />
+                <el-input v-model="form.uuid">
+                  <template #append><el-button @click="genUUID">生成</el-button></template>
+                </el-input>
               </el-form-item>
               <el-form-item label="密码">
-                <el-input v-model="form.password" show-password />
+                <el-input v-model="form.password" show-password>
+                  <template #append><el-button @click="genPassword">生成</el-button></template>
+                </el-input>
               </el-form-item>
               <el-row :gutter="12">
                 <el-col :span="12">
-                  <el-form-item label="混淆密码">
-                    <el-input v-model="form.obfs_password" />
+                  <el-form-item label="门控密码">
+                    <el-input v-model="form.obfs_password">
+                      <template #append><el-button @click="genObfsPassword">生成</el-button></template>
+                    </el-input>
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="节点 ID">
+                    <el-input v-model="form.sky_node_id" placeholder="hk-01" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="初始连接数">
+                    <el-input-number v-model="form.sky_connections" :min="1" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="最大连接数">
+                    <el-input-number v-model="form.sky_max_connections" :min="1" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="单连接流上限">
+                    <el-input-number v-model="form.sky_max_streams" :min="1" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="端口跳跃（秒）">
+                    <el-input-number v-model="form.sky_port_rotate" :min="0" style="width: 100%" />
                   </el-form-item>
                 </el-col>
                 <el-col :span="12">
                   <el-form-item label="混淆轮换（秒）">
-                    <el-input-number v-model="form.obfs_rotation" :min="0" style="width: 100%" />
+                    <el-input-number v-model="form.sky_obfs_rotation" :min="0" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="轮换容忍（秒）">
+                    <el-input-number v-model="form.sky_obfs_tolerance" :min="0" style="width: 100%" />
                   </el-form-item>
                 </el-col>
               </el-row>
+              <el-form-item label="端口段">
+                <el-input v-model="form.sky_server_ports" placeholder="20000:20010，逗号分隔" />
+              </el-form-item>
+              <el-form-item label="旧门控密钥（每行一个）">
+                <el-input v-model="form.sky_keys_text" type="textarea" :rows="3" placeholder="轮换期间的旧密钥，可留空" />
+              </el-form-item>
               <el-row :gutter="12">
                 <el-col :span="12">
                   <el-form-item label="上行 Mbps">
@@ -275,6 +325,70 @@
               </el-row>
             </template>
 
+            <template v-if="form.type === 'fasthorse'">
+              <el-row :gutter="12">
+                <el-col :span="12">
+                  <el-form-item label="用户名">
+                    <el-input v-model="form.username" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="密码">
+                    <el-input v-model="form.password" show-password>
+                  <template #append><el-button @click="genPassword">生成</el-button></template>
+                </el-input>
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="端口段">
+                    <el-input v-model="form.fast_server_ports" placeholder="20000:20010，留空用上面的端口" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="节点 ID">
+                    <el-input v-model="form.fast_node_id" placeholder="hk-01" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="混淆密码">
+                    <el-input v-model="form.obfs_password">
+                      <template #append><el-button @click="genObfsPassword">生成</el-button></template>
+                    </el-input>
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="密钥 ID">
+                    <el-input-number v-model="form.fast_key_id" :min="0" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="8">
+                  <el-form-item label="轮换（秒）">
+                    <el-input-number v-model="form.obfs_rotation" :min="0" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="8">
+                  <el-form-item label="容忍（秒）">
+                    <el-input-number v-model="form.fast_tolerance" :min="0" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="8">
+                  <el-form-item label="填充到（字节）">
+                    <el-input-number v-model="form.fast_pad_to" :min="-1" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="连接数">
+                    <el-input-number v-model="form.fast_connections" :min="1" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="单连接流上限">
+                    <el-input-number v-model="form.fast_max_streams" :min="1" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+              </el-row>
+            </template>
+
             <template v-if="form.type === 'tuic'">
               <el-form-item label="UUID">
                 <el-input v-model="form.uuid">
@@ -282,7 +396,9 @@
                 </el-input>
               </el-form-item>
               <el-form-item label="密码">
-                <el-input v-model="form.password" show-password />
+                <el-input v-model="form.password" show-password>
+                  <template #append><el-button @click="genPassword">生成</el-button></template>
+                </el-input>
               </el-form-item>
               <el-row :gutter="12">
                 <el-col :span="12">
@@ -321,7 +437,9 @@
                 </el-col>
                 <el-col :span="12">
                   <el-form-item label="密码">
-                    <el-input v-model="form.password" show-password />
+                    <el-input v-model="form.password" show-password>
+                  <template #append><el-button @click="genPassword">生成</el-button></template>
+                </el-input>
                   </el-form-item>
                 </el-col>
               </el-row>
@@ -339,7 +457,9 @@
                 </el-col>
                 <el-col :span="12">
                   <el-form-item label="密码">
-                    <el-input v-model="form.password" show-password />
+                    <el-input v-model="form.password" show-password>
+                  <template #append><el-button @click="genPassword">生成</el-button></template>
+                </el-input>
                   </el-form-item>
                 </el-col>
               </el-row>
@@ -640,8 +760,8 @@ const testing = reactive<Record<number, boolean>>({})
 const isWindows = computed(() => navigator.userAgent.includes('Windows'))
 const ssMethods = computed(() => [...presets.value.ss2022_methods, ...presets.value.ss_methods])
 const needServer = computed(() => !['direct', 'block'].includes(form.type))
-const needTLS = computed(() => ['vless', 'vmess', 'trojan', 'hysteria2', 'skyhorse', 'tuic', 'http'].includes(form.type))
-const forceTLS = computed(() => ['hysteria2', 'skyhorse', 'tuic'].includes(form.type))
+const needTLS = computed(() => ['vless', 'vmess', 'trojan', 'hysteria2', 'skyhorse', 'fasthorse', 'tuic', 'http'].includes(form.type))
+const forceTLS = computed(() => ['hysteria2', 'skyhorse', 'fasthorse', 'tuic'].includes(form.type))
 // tlsActive 表示"实际会启用 TLS"：强制 TLS 的协议即便开关未打开也算启用。
 const tlsActive = computed(() => form.tls_enabled || forceTLS.value)
 const supportsTransport = computed(() => ['vless', 'vmess', 'trojan'].includes(form.type))
@@ -698,6 +818,13 @@ function emptyForm() {
     obfs_password: '',
     up_mbps: 0,
     obfs_rotation: 0,
+    fast_server_ports: '',
+    fast_node_id: '',
+    fast_key_id: 0,
+    fast_tolerance: 3600,
+    fast_pad_to: 1024,
+    fast_connections: 4,
+    fast_max_streams: 32,
     down_mbps: 0,
     congestion_control: '',
     udp_relay_mode: '',
@@ -743,6 +870,16 @@ function emptyForm() {
     dial_resolver: '',
     dial_timeout: '',
     extraText: '',
+
+    sky_connections: 4,
+    sky_max_connections: 16,
+    sky_max_streams: 32,
+    sky_port_rotate: 120,
+    sky_server_ports: '',
+    sky_node_id: '',
+    sky_keys_text: '',
+    sky_obfs_rotation: 300,
+    sky_obfs_tolerance: 60,
 
     // 批量创建（仅新增时生效）
     batch_enabled: false,
@@ -804,9 +941,27 @@ function buildConfig(): Record<string, unknown> {
       cfg.uuid = form.uuid
       if (form.password) cfg.password = form.password
       if (form.obfs_password) cfg.obfs_password = form.obfs_password
-      if (form.obfs_rotation) cfg.obfs_rotation_seconds = form.obfs_rotation
+      if (form.sky_obfs_rotation > 0) cfg.obfs_rotation_seconds = form.sky_obfs_rotation
+      if (form.sky_obfs_tolerance > 0) cfg.obfs_tolerance_seconds = form.sky_obfs_tolerance
+      const skyKeys = form.sky_keys_text.split('\n').map((v: string) => v.trim()).filter(Boolean)
+      if (skyKeys.length) cfg.obfs_keys = skyKeys
       if (form.up_mbps) cfg.up_mbps = form.up_mbps
       if (form.down_mbps) cfg.down_mbps = form.down_mbps
+      break
+    }
+    case 'fasthorse': {
+      cfg.username = form.username
+      cfg.password = form.password
+      if (form.fast_server_ports) cfg.server_ports = [form.fast_server_ports]
+      const obfs: Record<string, unknown> = { password: form.obfs_password }
+      if (form.fast_key_id) obfs.key_id = form.fast_key_id
+      if (form.obfs_rotation) obfs.rotation = `${form.obfs_rotation}s`
+      if (form.fast_tolerance) obfs.tolerance = `${form.fast_tolerance}s`
+      if (form.fast_pad_to >= 0) obfs.pad_to = form.fast_pad_to
+      cfg.obfs = obfs
+      if (form.fast_node_id) cfg.gate = { node_id: form.fast_node_id }
+      cfg.connections = form.fast_connections
+      cfg.max_streams_per_connection = form.fast_max_streams
       break
     }
     case 'tuic': {
@@ -912,12 +1067,22 @@ function buildPayload() {
   if (form.dial_resolver) dial.domain_resolver = form.dial_resolver
   if (form.dial_timeout) dial.connect_timeout = form.dial_timeout
 
-  let extra: unknown = null
+  const extraObj: Record<string, unknown> = {}
+  if (form.type === 'skyhorse') {
+    if (form.sky_connections > 0) extraObj.connections = form.sky_connections
+    if (form.sky_max_connections > 0) extraObj.max_connections = form.sky_max_connections
+    if (form.sky_max_streams > 0) extraObj.max_streams_per_connection = form.sky_max_streams
+    if (form.sky_port_rotate >= 0) extraObj.port_rotate_seconds = form.sky_port_rotate
+    if (form.sky_server_ports) extraObj.server_ports = form.sky_server_ports.split(/[\s,]+/).filter(Boolean)
+    if (form.sky_node_id) extraObj.node_id = form.sky_node_id
+    const keys = form.sky_keys_text.split('\n').map((v: string) => v.trim()).filter(Boolean)
+    if (keys.length) extraObj.obfs_keys = keys
+  }
   if (form.extraText.trim()) {
     try {
-      extra = JSON.parse(form.extraText)
+      Object.assign(extraObj, JSON.parse(form.extraText))
     } catch {
-      extra = null
+      /* ignore */
     }
   }
 
@@ -934,7 +1099,7 @@ function buildPayload() {
     transport: buildTransport(),
     multiplex: mux,
     dial: Object.keys(dial).length ? dial : null,
-    extra,
+    extra: Object.keys(extraObj).length ? extraObj : null,
   }
 }
 
@@ -995,7 +1160,21 @@ function fillForm(ob: Outbound) {
   form.plugin_opts = cfg.plugin_opts || ''
   form.network = cfg.network || ''
   form.obfs_type = cfg.obfs?.type || ''
-  form.obfs_password = cfg.obfs?.password || ''
+  form.obfs_password = cfg.obfs?.password || cfg.obfs_password || ''
+  const fastSec = (v: unknown): number => {
+    if (typeof v === 'number') return v
+    const m = /^(\d+)(ms|s|m|h)$/.exec(String(v ?? ''))
+    if (!m) return 0
+    const n = Number(m[1])
+    return m[2] === 'h' ? n * 3600 : m[2] === 'm' ? n * 60 : m[2] === 's' ? n : Math.round(n / 1000)
+  }
+  form.fast_server_ports = Array.isArray(cfg.server_ports) ? cfg.server_ports.join(',') : ''
+  form.fast_node_id = cfg.gate?.node_id || ''
+  form.fast_key_id = cfg.obfs?.key_id || 0
+  form.fast_tolerance = fastSec(cfg.obfs?.tolerance) || 3600
+  form.fast_pad_to = cfg.obfs?.pad_to ?? 1024
+  form.fast_connections = cfg.connections || 4
+  form.fast_max_streams = cfg.max_streams_per_connection || 32
   form.up_mbps = cfg.up_mbps || 0
   form.down_mbps = cfg.down_mbps || 0
   form.congestion_control = cfg.congestion_control || ''
@@ -1066,7 +1245,37 @@ function fillForm(ob: Outbound) {
     form.dial_timeout = dial.connect_timeout || ''
   }
 
-  form.extraText = ob.extra ? JSON.stringify(ob.extra, null, 2) : ''
+  let extraObj: Record<string, any> = {}
+  if (typeof ob.extra === 'string' && ob.extra.trim()) {
+    try {
+      extraObj = { ...(JSON.parse(ob.extra) as Record<string, any>) }
+    } catch {
+      extraObj = {}
+    }
+  } else if (ob.extra && typeof ob.extra === 'object') {
+    extraObj = { ...(ob.extra as Record<string, any>) }
+  }
+  if (ob.type === 'skyhorse') {
+    if (extraObj.connections) form.sky_connections = Number(extraObj.connections)
+    if (extraObj.max_connections) form.sky_max_connections = Number(extraObj.max_connections)
+    if (extraObj.max_streams_per_connection) form.sky_max_streams = Number(extraObj.max_streams_per_connection)
+    if (extraObj.port_rotate_seconds !== undefined) form.sky_port_rotate = Number(extraObj.port_rotate_seconds)
+    if (Array.isArray(extraObj.server_ports)) form.sky_server_ports = extraObj.server_ports.join(',')
+    if (extraObj.node_id) form.sky_node_id = String(extraObj.node_id)
+    if (Array.isArray(extraObj.obfs_keys)) form.sky_keys_text = extraObj.obfs_keys.map((v: unknown) => String(v)).join('\n')
+    if (extraObj.obfs_rotation_seconds !== undefined) form.sky_obfs_rotation = Number(extraObj.obfs_rotation_seconds)
+    if (extraObj.obfs_tolerance_seconds !== undefined) form.sky_obfs_tolerance = Number(extraObj.obfs_tolerance_seconds)
+    delete extraObj.connections
+    delete extraObj.max_connections
+    delete extraObj.max_streams_per_connection
+    delete extraObj.port_rotate_seconds
+    delete extraObj.server_ports
+    delete extraObj.node_id
+    delete extraObj.obfs_keys
+    delete extraObj.obfs_rotation_seconds
+    delete extraObj.obfs_tolerance_seconds
+  }
+  form.extraText = Object.keys(extraObj).length ? JSON.stringify(extraObj, null, 2) : ''
 }
 
 // ---- 交互 ----
@@ -1132,6 +1341,16 @@ function openEdit(row: Outbound) {
 function openImport() {
   importLink.value = ''
   importDialog.value = true
+}
+
+async function genObfsPassword() {
+  const res = await api.post<{ password: string }>('/api/tools/password', {})
+  form.obfs_password = res.password
+}
+
+async function genPassword() {
+  const res = await api.post<{ password: string }>('/api/tools/password', {})
+  form.password = res.password
 }
 
 async function genUUID() {
