@@ -317,11 +317,6 @@
               </el-row>
               <el-row :gutter="12">
                 <el-col :span="12">
-                  <el-form-item label="初始连接数">
-                    <el-input-number v-model="form.sky_connections" :min="1" style="width: 100%" />
-                  </el-form-item>
-                </el-col>
-                <el-col :span="12">
                   <el-form-item label="最大连接数">
                     <el-input-number v-model="form.sky_max_connections" :min="1" style="width: 100%" />
                   </el-form-item>
@@ -332,7 +327,7 @@
                   </el-form-item>
                 </el-col>
                 <el-col :span="12">
-                  <el-form-item label="端口跳跃（秒）">
+                  <el-form-item label="端口轮换间隔（秒）">
                     <el-input-number v-model="form.sky_port_rotate" :min="0" style="width: 100%" />
                   </el-form-item>
                 </el-col>
@@ -413,6 +408,31 @@
                 <el-col :span="12">
                   <el-form-item label="端口段">
                     <el-input v-model="form.fast_port_range" placeholder="20000:20010，留空用上面的端口" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="8">
+                  <el-form-item label="启用端口跳跃">
+                    <el-switch v-model="form.fast_port_hop_enabled" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="8">
+                  <el-form-item label="端口轮换（秒）">
+                    <el-input-number v-model="form.fast_port_rotate" :min="0" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="8">
+                  <el-form-item label="单连接流上限">
+                    <el-input-number v-model="form.fast_max_streams" :min="1" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="8">
+                  <el-form-item label="上行 Mbps">
+                    <el-input-number v-model="form.fast_up_mbps" :min="0" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="8">
+                  <el-form-item label="下行 Mbps">
+                    <el-input-number v-model="form.fast_down_mbps" :min="0" style="width: 100%" />
                   </el-form-item>
                 </el-col>
                 <el-col :span="8">
@@ -996,6 +1016,11 @@ function defaultForm() {
     sky_disable_loss: false,
 
     fast_port_range: '',
+    fast_port_hop_enabled: false,
+    fast_port_rotate: 120,
+    fast_max_streams: 64,
+    fast_up_mbps: 0,
+    fast_down_mbps: 0,
     fast_rotation: 3600,
     fast_tolerance: 3600,
     fast_pad_to: 1024,
@@ -1331,7 +1356,6 @@ function buildExtra(): Record<string, unknown> | null {
     if (form.sky_obfs_tolerance > 0) e.obfs_tolerance_seconds = form.sky_obfs_tolerance
     const oldKeys = form.sky_keys_text.split('\n').map((v: string) => v.trim()).filter(Boolean)
     if (oldKeys.length) e.obfs_keys = oldKeys
-    e.connections = form.sky_connections
     e.max_connections = form.sky_max_connections
     e.max_streams_per_connection = form.sky_max_streams
     e.port_rotate_seconds = form.sky_port_rotate
@@ -1375,6 +1399,14 @@ function buildExtra(): Record<string, unknown> | null {
     if (form.fast_failure_delay > 0) gate.failure_delay = `${form.fast_failure_delay}ms`
     if (Object.keys(gate).length) e.gate = gate
     if (form.fast_port_range) e.listen_port_range = form.fast_port_range
+    e.port_hop_enabled = !!form.fast_port_hop_enabled
+    if (form.fast_port_rotate > 0) e.port_rotate_seconds = form.fast_port_rotate
+    if (form.fast_max_streams > 0) e.max_streams_per_connection = form.fast_max_streams
+    if (form.fast_up_mbps > 0) e.up_mbps = form.fast_up_mbps
+    if (form.fast_down_mbps > 0) e.down_mbps = form.fast_down_mbps
+    if (form.fast_port_range) {
+      e.server_ports = form.fast_port_range.split(/[\s,]+/).filter(Boolean)
+    }
   }
   // QUIC 调优（hysteria2 / tuic 共用）
   if (supportsQUIC.value) {
@@ -1633,6 +1665,25 @@ async function openEdit(row: Inbound) {
       form.fast_port_range = String(extra.listen_port_range)
       delete extra.listen_port_range
     }
+    form.fast_port_hop_enabled = !!extra.port_hop_enabled
+    delete extra.port_hop_enabled
+    if (extra.port_rotate_seconds !== undefined) {
+      form.fast_port_rotate = Number(extra.port_rotate_seconds) || 0
+      delete extra.port_rotate_seconds
+    }
+    if (extra.max_streams_per_connection !== undefined) {
+      form.fast_max_streams = Number(extra.max_streams_per_connection) || 64
+      delete extra.max_streams_per_connection
+    }
+    if (extra.up_mbps !== undefined) {
+      form.fast_up_mbps = Number(extra.up_mbps) || 0
+      delete extra.up_mbps
+    }
+    if (extra.down_mbps !== undefined) {
+      form.fast_down_mbps = Number(extra.down_mbps) || 0
+      delete extra.down_mbps
+    }
+    delete extra.server_ports
   }
 
   if (form.type === 'skyhorse') {
