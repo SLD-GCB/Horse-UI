@@ -618,7 +618,7 @@ func buildSingboxOutbound(server string, ib model.Inbound, cl model.Client) map[
 			for _, key := range []string{
 				"obfs_rotation_seconds", "obfs_tolerance_seconds",
 				"connections", "max_connections", "max_streams_per_connection",
-				"port_rotate_seconds", "server_ports", "node_id", "obfs_keys",
+				"port_rotate_seconds", "port_hop_enabled", "server_ports", "node_id", "obfs_keys",
 				"prewarm", "transport",
 			} {
 				if v, ok := extra[key]; ok {

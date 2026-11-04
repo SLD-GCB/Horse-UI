@@ -295,6 +295,11 @@
                   </el-form-item>
                 </el-col>
                 <el-col :span="12">
+                  <el-form-item label="启用端口跳跃">
+                    <el-switch v-model="form.sky_port_hop_enabled" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
                   <el-form-item label="混淆轮换（秒）">
                     <el-input-number v-model="form.sky_obfs_rotation" :min="0" style="width: 100%" />
                   </el-form-item>
@@ -342,6 +347,11 @@
                 <el-col :span="12">
                   <el-form-item label="端口段">
                     <el-input v-model="form.fast_server_ports" placeholder="20000:20010，留空用上面的端口" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="启用端口跳跃">
+                    <el-switch v-model="form.fast_port_hop_enabled" />
                   </el-form-item>
                 </el-col>
                 <el-col :span="12">
@@ -819,6 +829,7 @@ function emptyForm() {
     up_mbps: 0,
     obfs_rotation: 0,
     fast_server_ports: '',
+    fast_port_hop_enabled: true,
     fast_node_id: '',
     fast_key_id: 0,
     fast_tolerance: 3600,
@@ -875,6 +886,7 @@ function emptyForm() {
     sky_max_connections: 16,
     sky_max_streams: 32,
     sky_port_rotate: 120,
+    sky_port_hop_enabled: true,
     sky_server_ports: '',
     sky_node_id: '',
     sky_keys_text: '',
@@ -953,6 +965,7 @@ function buildConfig(): Record<string, unknown> {
       cfg.username = form.username
       cfg.password = form.password
       if (form.fast_server_ports) cfg.server_ports = [form.fast_server_ports]
+      cfg.port_hop_enabled = !!form.fast_port_hop_enabled
       const obfs: Record<string, unknown> = { password: form.obfs_password }
       if (form.fast_key_id) obfs.key_id = form.fast_key_id
       if (form.obfs_rotation) obfs.rotation = `${form.obfs_rotation}s`
@@ -1080,6 +1093,7 @@ function buildPayload() {
     if (form.sky_max_connections > 0) extraObj.max_connections = form.sky_max_connections
     if (form.sky_max_streams > 0) extraObj.max_streams_per_connection = form.sky_max_streams
     if (form.sky_port_rotate >= 0) extraObj.port_rotate_seconds = form.sky_port_rotate
+    extraObj.port_hop_enabled = !!form.sky_port_hop_enabled
     if (form.sky_server_ports) extraObj.server_ports = form.sky_server_ports.split(/[\s,]+/).filter(Boolean)
     if (form.sky_node_id) extraObj.node_id = form.sky_node_id
     const keys = form.sky_keys_text.split('\n').map((v: string) => v.trim()).filter(Boolean)
@@ -1169,6 +1183,7 @@ function fillForm(ob: Outbound) {
     return m[2] === 'h' ? n * 3600 : m[2] === 'm' ? n * 60 : m[2] === 's' ? n : Math.round(n / 1000)
   }
   form.fast_server_ports = Array.isArray(cfg.server_ports) ? cfg.server_ports.join(',') : ''
+  form.fast_port_hop_enabled = cfg.port_hop_enabled !== false
   form.fast_node_id = cfg.gate?.node_id || ''
   form.fast_key_id = cfg.obfs?.key_id || 0
   form.fast_tolerance = fastSec(cfg.obfs?.tolerance) || 3600
@@ -1260,6 +1275,7 @@ function fillForm(ob: Outbound) {
     if (extraObj.max_connections) form.sky_max_connections = Number(extraObj.max_connections)
     if (extraObj.max_streams_per_connection) form.sky_max_streams = Number(extraObj.max_streams_per_connection)
     if (extraObj.port_rotate_seconds !== undefined) form.sky_port_rotate = Number(extraObj.port_rotate_seconds)
+    if (extraObj.port_hop_enabled !== undefined) form.sky_port_hop_enabled = !!extraObj.port_hop_enabled
     if (Array.isArray(extraObj.server_ports)) form.sky_server_ports = extraObj.server_ports.join(',')
     if (extraObj.node_id) form.sky_node_id = String(extraObj.node_id)
     if (Array.isArray(extraObj.obfs_keys)) form.sky_keys_text = extraObj.obfs_keys.map((v: unknown) => String(v)).join('\n')
@@ -1269,6 +1285,7 @@ function fillForm(ob: Outbound) {
     delete extraObj.max_connections
     delete extraObj.max_streams_per_connection
     delete extraObj.port_rotate_seconds
+    delete extraObj.port_hop_enabled
     delete extraObj.server_ports
     delete extraObj.node_id
     delete extraObj.obfs_keys

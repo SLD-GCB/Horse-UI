@@ -337,6 +337,9 @@
                   </el-form-item>
                 </el-col>
               </el-row>
+              <el-form-item label="启用端口跳跃">
+                <el-switch v-model="form.sky_port_hop_enabled" />
+              </el-form-item>
               <el-form-item label="旧门控密钥（每行一个）">
                 <el-input v-model="form.sky_keys_text" type="textarea" :rows="3" placeholder="用于轮换期间的旧密钥，可留空" />
               </el-form-item>
@@ -982,6 +985,7 @@ function defaultForm() {
     sky_max_connections: 16,
     sky_max_streams: 32,
     sky_port_rotate: 120,
+    sky_port_hop_enabled: true,
     sky_allow_private: false,
     sky_allow_loopback: false,
     sky_allowed_ports: '',
@@ -1351,6 +1355,7 @@ function buildExtra(): Record<string, unknown> | null {
     e.max_connections = form.sky_max_connections
     e.max_streams_per_connection = form.sky_max_streams
     e.port_rotate_seconds = form.sky_port_rotate
+    e.port_hop_enabled = !!form.sky_port_hop_enabled
     const policy: Record<string, unknown> = { allow_private: !!form.sky_allow_private, allow_loopback: !!form.sky_allow_loopback }
     const ports = form.sky_allowed_ports.split(/[\s,]+/).map((v) => v.trim()).filter(Boolean)
     if (ports.length) policy.allowed_ports = ports.flatMap((p) => {
@@ -1689,6 +1694,10 @@ async function openEdit(row: Inbound) {
     if (extra.port_rotate_seconds !== undefined) {
       form.sky_port_rotate = Number(extra.port_rotate_seconds)
       delete extra.port_rotate_seconds
+    }
+    if (extra.port_hop_enabled !== undefined) {
+      form.sky_port_hop_enabled = !!extra.port_hop_enabled
+      delete extra.port_hop_enabled
     }
     const policy = asObj(extra.policy)
     if (policy) {
