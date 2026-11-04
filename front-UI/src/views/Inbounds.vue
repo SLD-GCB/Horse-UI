@@ -1143,6 +1143,20 @@ async function loadPortPool() {
 
 /* ---------------- 表格展示 ---------------- */
 
+function isValidCIDR(v: string): boolean {
+  const s = v.trim()
+  if (!s) return false
+  const parts = s.split('/')
+  if (parts.length !== 2) return false
+  const mask = Number(parts[1])
+  if (!Number.isInteger(mask) || mask < 0 || mask > 128) return false
+  const ip = parts[0]
+  if (ip.includes(':')) return ip.split(':').every((o) => o === '' || /^[0-9a-fA-F]{1,4}$/.test(o))
+  const m = /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/.exec(ip)
+  if (!m) return false
+  return m.slice(1).every((o) => Number(o) <= 255)
+}
+
 function asObj(v: unknown): Record<string, unknown> | null {
   if (typeof v === 'string') {
     const s = v.trim()
@@ -1302,6 +1316,8 @@ const KNOWN_EXTRA_KEYS = [
 
 function buildExtra(): Record<string, unknown> | null {
   const e: Record<string, unknown> = {}
+  const raw = parseRawJSON(form.extra_raw)
+  if (raw) Object.assign(e, raw)
   if (form.type === 'shadowsocks') {
     if (form.ss_network) e.network = form.ss_network
     if (form.ss_managed) e.managed = true
@@ -1388,8 +1404,6 @@ function buildExtra(): Record<string, unknown> | null {
   }
   // Listen 层：TCP Fast Open
   if (supportsTFO.value && form.tfo) e.tcp_fast_open = true
-  const raw = parseRawJSON(form.extra_raw)
-  if (raw) Object.assign(e, raw)
   return Object.keys(e).length ? e : null
 }
 
@@ -1542,17 +1556,19 @@ async function openEdit(row: Inbound) {
     form.tuic_zero_rtt = !!extra.zero_rtt_handshake
     delete extra.zero_rtt_handshake
   }
-  if (extra.ignore_client_bandwidth !== undefined) {
-    form.hy2_ignore_bw = !!extra.ignore_client_bandwidth
-    delete extra.ignore_client_bandwidth
-  }
-  if (extra.bbr_profile !== undefined) {
-    form.hy2_bbr_profile = String(extra.bbr_profile)
-    delete extra.bbr_profile
-  }
-  if (extra.brutal_debug !== undefined) {
-    form.hy2_brutal_debug = !!extra.brutal_debug
-    delete extra.brutal_debug
+  if (form.type === 'hysteria2') {
+    if (extra.ignore_client_bandwidth !== undefined) {
+      form.hy2_ignore_bw = !!extra.ignore_client_bandwidth
+      delete extra.ignore_client_bandwidth
+    }
+    if (extra.bbr_profile !== undefined) {
+      form.hy2_bbr_profile = String(extra.bbr_profile)
+      delete extra.bbr_profile
+    }
+    if (extra.brutal_debug !== undefined) {
+      form.hy2_brutal_debug = !!extra.brutal_debug
+      delete extra.brutal_debug
+    }
   }
 
   // ---- 弱网调优字段回填（顺带从 extra 里剔除，避免重复落进 extra_raw） ----
@@ -1678,17 +1694,29 @@ async function openEdit(row: Inbound) {
     if (policy) {
       form.sky_allow_private = !!policy.allow_private
       form.sky_allow_loopback = !!policy.allow_loopback
-      if (Array.isArray(policy.allowed_ports)) form.sky_allowed_ports = policy.allowed_ports.join(',')
-      if (Array.isArray(policy.denied_cidrs)) form.sky_denied_cidrs = policy.denied_cidrs.join('\n')
-      if (Array.isArray(policy.allowed_cidrs)) form.sky_allowed_cidrs = policy.allowed_cidrs.join('\n')
+      if (policy.allowed_ports !== undefined) {
+        form.sky_allowed_ports = Array.isArray(policy.allowed_ports)
+          ? policy.allowed_ports.join(',')
+          : String(policy.allowed_ports)
+      }
+      if (policy.denied_cidrs !== undefined) {
+        form.sky_denied_cidrs = Array.isArray(policy.denied_cidrs)
+          ? policy.denied_cidrs.join('\n')
+          : String(policy.denied_cidrs)
+      }
+      if (policy.allowed_cidrs !== undefined) {
+        form.sky_allowed_cidrs = Array.isArray(policy.allowed_cidrs)
+          ? policy.allowed_cidrs.join('\n')
+          : String(policy.allowed_cidrs)
+      }
       delete extra.policy
     }
     const guard = asObj(extra.guard)
     if (guard) {
-      form.sky_max_conn_per_ip = Number(guard.max_connections_per_ip) || 64
-      form.sky_max_auth_fails = Number(guard.max_auth_failures) || 20
-      form.sky_auth_window = Number(guard.auth_failure_window_seconds) || 60
-      form.sky_auth_block = Number(guard.auth_block_seconds) || 300
+      if (guard.max_connections_per_ip !== undefined) form.sky_max_conn_per_ip = Number(guard.max_connections_per_ip)
+      if (guard.max_auth_failures !== undefined) form.sky_max_auth_fails = Number(guard.max_auth_failures)
+      if (guard.auth_failure_window_seconds !== undefined) form.sky_auth_window = Number(guard.auth_failure_window_seconds)
+      if (guard.auth_block_seconds !== undefined) form.sky_auth_block = Number(guard.auth_block_seconds)
       delete extra.guard
     }
     if (extra.ignore_client_bandwidth !== undefined) {
@@ -1865,6 +1893,19 @@ async function save() {
   if (form.extra_raw.trim() && !parseRawJSON(form.extra_raw)) {
     ElMessage.error('附加字段必须是合法的 JSON 对象')
     return
+  }
+  if (form.type === 'skyhorse') {
+    const badCIDR = (text: string) => text.split('\n').map((v) => v.trim()).filter(Boolean).find((v) => !isValidCIDR(v))
+    const badDenied = badCIDR(form.sky_denied_cidrs)
+    if (badDenied) {
+      ElMessage.error(`拒绝网段包含非法 CIDR：${badDenied}（格式应为 IP/掩码，例如 1.1.1.0/24）`)
+      return
+    }
+    const badAllowed = badCIDR(form.sky_allowed_cidrs)
+    if (badAllowed) {
+      ElMessage.error(`允许网段包含非法 CIDR：${badAllowed}（格式应为 IP/掩码，例如 1.1.1.0/24）`)
+      return
+    }
   }
   // 非 Shadowsocks 协议强制 TLS：必须具备 Reality 或有效证书
   if (form.type !== 'shadowsocks' && !form.reality_enabled) {

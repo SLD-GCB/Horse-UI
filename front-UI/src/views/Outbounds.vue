@@ -1068,6 +1068,13 @@ function buildPayload() {
   if (form.dial_timeout) dial.connect_timeout = form.dial_timeout
 
   const extraObj: Record<string, unknown> = {}
+  if (form.extraText.trim()) {
+    try {
+      Object.assign(extraObj, JSON.parse(form.extraText))
+    } catch {
+      /* ignore */
+    }
+  }
   if (form.type === 'skyhorse') {
     if (form.sky_connections > 0) extraObj.connections = form.sky_connections
     if (form.sky_max_connections > 0) extraObj.max_connections = form.sky_max_connections
@@ -1077,13 +1084,6 @@ function buildPayload() {
     if (form.sky_node_id) extraObj.node_id = form.sky_node_id
     const keys = form.sky_keys_text.split('\n').map((v: string) => v.trim()).filter(Boolean)
     if (keys.length) extraObj.obfs_keys = keys
-  }
-  if (form.extraText.trim()) {
-    try {
-      Object.assign(extraObj, JSON.parse(form.extraText))
-    } catch {
-      /* ignore */
-    }
   }
 
   return {

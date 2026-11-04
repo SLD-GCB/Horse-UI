@@ -175,7 +175,9 @@ func (c *Core) Generate() ([]byte, error) {
 		}
 		ci, err := buildInbound(ib, clients, cert)
 		if err != nil {
-			return nil, fmt.Errorf("入站 [%s]: %w", ib.Tag, err)
+			// 单个入站配置错误不能拖垮整份内核配置。
+			fmt.Printf("[config] skip inbound %s: %v\n", ib.Tag, err)
+			continue
 		}
 		in.Inbounds = append(in.Inbounds, ci)
 		if ib.Sniff {
@@ -190,7 +192,8 @@ func (c *Core) Generate() ([]byte, error) {
 	for _, ob := range outbounds {
 		co, err := buildOutbound(ob)
 		if err != nil {
-			return nil, fmt.Errorf("出站 [%s]: %w", ob.Tag, err)
+			fmt.Printf("[config] skip outbound %s: %v\n", ob.Tag, err)
+			continue
 		}
 		// WireGuard 等 endpoint 类型渲染到顶层 endpoints。
 		if ob.Type == model.ProtoWireGuard {
