@@ -317,11 +317,6 @@
               </el-row>
               <el-row :gutter="12">
                 <el-col :span="12">
-                  <el-form-item label="初始连接数">
-                    <el-input-number v-model="form.sky_connections" :min="1" style="width: 100%" />
-                  </el-form-item>
-                </el-col>
-                <el-col :span="12">
                   <el-form-item label="最大连接数">
                     <el-input-number v-model="form.sky_max_connections" :min="1" style="width: 100%" />
                   </el-form-item>
@@ -332,7 +327,7 @@
                   </el-form-item>
                 </el-col>
                 <el-col :span="12">
-                  <el-form-item label="端口跳跃（秒）">
+                  <el-form-item label="端口轮换间隔（秒）">
                     <el-input-number v-model="form.sky_port_rotate" :min="0" style="width: 100%" />
                   </el-form-item>
                 </el-col>
@@ -382,13 +377,24 @@
               </el-row>
               <el-row :gutter="12">
                 <el-col :span="12">
+                  <el-form-item label="上行 Mbps">
+                    <el-input-number v-model="form.sky_up_mbps" :min="0" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="下行 Mbps">
+                    <el-input-number v-model="form.sky_down_mbps" :min="0" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
                   <el-form-item label="忽略客户端带宽">
                     <el-switch v-model="form.sky_ignore_bw" />
                   </el-form-item>
                 </el-col>
                 <el-col :span="12">
-                  <el-form-item label="BBR 配置">
+                  <el-form-item label="拥塞控制">
                     <el-select v-model="form.sky_bbr_profile" style="width: 100%">
+                      <el-option label="Brutal（不使用 BBR）" value="" />
                       <el-option label="standard" value="standard" />
                       <el-option label="conservative" value="conservative" />
                       <el-option label="aggressive" value="aggressive" />
@@ -416,6 +422,31 @@
                 <el-col :span="12">
                   <el-form-item label="端口段">
                     <el-input v-model="form.fast_port_range" placeholder="20000:20010，留空用上面的端口" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="8">
+                  <el-form-item label="启用端口跳跃">
+                    <el-switch v-model="form.fast_port_hop_enabled" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="8">
+                  <el-form-item label="端口轮换（秒）">
+                    <el-input-number v-model="form.fast_port_rotate" :min="0" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="8">
+                  <el-form-item label="单连接流上限">
+                    <el-input-number v-model="form.fast_max_streams" :min="1" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="8">
+                  <el-form-item label="上行 Mbps">
+                    <el-input-number v-model="form.fast_up_mbps" :min="0" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="8">
+                  <el-form-item label="下行 Mbps">
+                    <el-input-number v-model="form.fast_down_mbps" :min="0" style="width: 100%" />
                   </el-form-item>
                 </el-col>
                 <el-col :span="8">
@@ -981,11 +1012,12 @@ function defaultForm() {
     sky_obfs_rotation: 300,
     sky_obfs_tolerance: 60,
     sky_keys_text: '',
-    sky_connections: 4,
     sky_max_connections: 16,
     sky_max_streams: 32,
     sky_port_rotate: 120,
-    sky_port_hop_enabled: true,
+    sky_port_hop_enabled: false,
+    sky_up_mbps: 0,
+    sky_down_mbps: 0,
     sky_allow_private: false,
     sky_allow_loopback: false,
     sky_allowed_ports: '',
@@ -1000,6 +1032,11 @@ function defaultForm() {
     sky_disable_loss: false,
 
     fast_port_range: '',
+    fast_port_hop_enabled: false,
+    fast_port_rotate: 120,
+    fast_max_streams: 64,
+    fast_up_mbps: 0,
+    fast_down_mbps: 0,
     fast_rotation: 3600,
     fast_tolerance: 3600,
     fast_pad_to: 1024,
@@ -1146,20 +1183,6 @@ async function loadPortPool() {
 }
 
 /* ---------------- 表格展示 ---------------- */
-
-function isValidCIDR(v: string): boolean {
-  const s = v.trim()
-  if (!s) return false
-  const parts = s.split('/')
-  if (parts.length !== 2) return false
-  const mask = Number(parts[1])
-  if (!Number.isInteger(mask) || mask < 0 || mask > 128) return false
-  const ip = parts[0]
-  if (ip.includes(':')) return ip.split(':').every((o) => o === '' || /^[0-9a-fA-F]{1,4}$/.test(o))
-  const m = /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/.exec(ip)
-  if (!m) return false
-  return m.slice(1).every((o) => Number(o) <= 255)
-}
 
 function asObj(v: unknown): Record<string, unknown> | null {
   if (typeof v === 'string') {
@@ -1320,8 +1343,6 @@ const KNOWN_EXTRA_KEYS = [
 
 function buildExtra(): Record<string, unknown> | null {
   const e: Record<string, unknown> = {}
-  const raw = parseRawJSON(form.extra_raw)
-  if (raw) Object.assign(e, raw)
   if (form.type === 'shadowsocks') {
     if (form.ss_network) e.network = form.ss_network
     if (form.ss_managed) e.managed = true
@@ -1351,7 +1372,6 @@ function buildExtra(): Record<string, unknown> | null {
     if (form.sky_obfs_tolerance > 0) e.obfs_tolerance_seconds = form.sky_obfs_tolerance
     const oldKeys = form.sky_keys_text.split('\n').map((v: string) => v.trim()).filter(Boolean)
     if (oldKeys.length) e.obfs_keys = oldKeys
-    e.connections = form.sky_connections
     e.max_connections = form.sky_max_connections
     e.max_streams_per_connection = form.sky_max_streams
     e.port_rotate_seconds = form.sky_port_rotate
@@ -1396,6 +1416,14 @@ function buildExtra(): Record<string, unknown> | null {
     if (form.fast_failure_delay > 0) gate.failure_delay = `${form.fast_failure_delay}ms`
     if (Object.keys(gate).length) e.gate = gate
     if (form.fast_port_range) e.listen_port_range = form.fast_port_range
+    e.port_hop_enabled = !!form.fast_port_hop_enabled
+    if (form.fast_port_rotate > 0) e.port_rotate_seconds = form.fast_port_rotate
+    if (form.fast_max_streams > 0) e.max_streams_per_connection = form.fast_max_streams
+    if (form.fast_up_mbps > 0) e.up_mbps = form.fast_up_mbps
+    if (form.fast_down_mbps > 0) e.down_mbps = form.fast_down_mbps
+    if (form.fast_port_range) {
+      e.server_ports = form.fast_port_range.split(/[\s,]+/).filter(Boolean)
+    }
   }
   // QUIC 调优（hysteria2 / tuic 共用）
   if (supportsQUIC.value) {
@@ -1409,6 +1437,8 @@ function buildExtra(): Record<string, unknown> | null {
   }
   // Listen 层：TCP Fast Open
   if (supportsTFO.value && form.tfo) e.tcp_fast_open = true
+  const raw = parseRawJSON(form.extra_raw)
+  if (raw) Object.assign(e, raw)
   return Object.keys(e).length ? e : null
 }
 
@@ -1424,8 +1454,8 @@ function buildPayload(): Record<string, unknown> {
     sniff: form.sniff,
     method: form.method,
     server_password: form.server_password,
-    up_mbps: form.up_mbps,
-    down_mbps: form.down_mbps,
+    up_mbps: form.type === 'skyhorse' ? form.sky_up_mbps : form.up_mbps,
+    down_mbps: form.type === 'skyhorse' ? form.sky_down_mbps : form.down_mbps,
     obfs_type: form.obfs_type,
     obfs_password: form.obfs_password,
     congestion_control: form.congestion_control,
@@ -1474,6 +1504,8 @@ async function openEdit(row: Inbound) {
   form.server_password = row.server_password
   form.up_mbps = row.up_mbps
   form.down_mbps = row.down_mbps
+  form.sky_up_mbps = row.up_mbps || 0
+  form.sky_down_mbps = row.down_mbps || 0
   form.obfs_type = row.obfs_type || 'salamander'
   form.obfs_password = row.obfs_password
   form.congestion_control = row.congestion_control || 'bbr'
@@ -1652,6 +1684,25 @@ async function openEdit(row: Inbound) {
       form.fast_port_range = String(extra.listen_port_range)
       delete extra.listen_port_range
     }
+    form.fast_port_hop_enabled = !!extra.port_hop_enabled
+    delete extra.port_hop_enabled
+    if (extra.port_rotate_seconds !== undefined) {
+      form.fast_port_rotate = Number(extra.port_rotate_seconds) || 0
+      delete extra.port_rotate_seconds
+    }
+    if (extra.max_streams_per_connection !== undefined) {
+      form.fast_max_streams = Number(extra.max_streams_per_connection) || 64
+      delete extra.max_streams_per_connection
+    }
+    if (extra.up_mbps !== undefined) {
+      form.fast_up_mbps = Number(extra.up_mbps) || 0
+      delete extra.up_mbps
+    }
+    if (extra.down_mbps !== undefined) {
+      form.fast_down_mbps = Number(extra.down_mbps) || 0
+      delete extra.down_mbps
+    }
+    delete extra.server_ports
   }
 
   if (form.type === 'skyhorse') {
@@ -1675,13 +1726,9 @@ async function openEdit(row: Inbound) {
       form.sky_obfs_tolerance = Number(extra.obfs_tolerance_seconds)
       delete extra.obfs_tolerance_seconds
     }
-    if (Array.isArray(extra.obfs_keys)) {
+    if (extra.obfs_keys) {
       form.sky_keys_text = extra.obfs_keys.map((v: unknown) => String(v)).join('\n')
       delete extra.obfs_keys
-    }
-    if (extra.connections !== undefined) {
-      form.sky_connections = Number(extra.connections)
-      delete extra.connections
     }
     if (extra.max_connections !== undefined) {
       form.sky_max_connections = Number(extra.max_connections)
@@ -1703,29 +1750,17 @@ async function openEdit(row: Inbound) {
     if (policy) {
       form.sky_allow_private = !!policy.allow_private
       form.sky_allow_loopback = !!policy.allow_loopback
-      if (policy.allowed_ports !== undefined) {
-        form.sky_allowed_ports = Array.isArray(policy.allowed_ports)
-          ? policy.allowed_ports.join(',')
-          : String(policy.allowed_ports)
-      }
-      if (policy.denied_cidrs !== undefined) {
-        form.sky_denied_cidrs = Array.isArray(policy.denied_cidrs)
-          ? policy.denied_cidrs.join('\n')
-          : String(policy.denied_cidrs)
-      }
-      if (policy.allowed_cidrs !== undefined) {
-        form.sky_allowed_cidrs = Array.isArray(policy.allowed_cidrs)
-          ? policy.allowed_cidrs.join('\n')
-          : String(policy.allowed_cidrs)
-      }
+      if (Array.isArray(policy.allowed_ports)) form.sky_allowed_ports = policy.allowed_ports.join(',')
+      if (Array.isArray(policy.denied_cidrs)) form.sky_denied_cidrs = policy.denied_cidrs.join('\n')
+      if (Array.isArray(policy.allowed_cidrs)) form.sky_allowed_cidrs = policy.allowed_cidrs.join('\n')
       delete extra.policy
     }
     const guard = asObj(extra.guard)
     if (guard) {
-      if (guard.max_connections_per_ip !== undefined) form.sky_max_conn_per_ip = Number(guard.max_connections_per_ip)
-      if (guard.max_auth_failures !== undefined) form.sky_max_auth_fails = Number(guard.max_auth_failures)
-      if (guard.auth_failure_window_seconds !== undefined) form.sky_auth_window = Number(guard.auth_failure_window_seconds)
-      if (guard.auth_block_seconds !== undefined) form.sky_auth_block = Number(guard.auth_block_seconds)
+      form.sky_max_conn_per_ip = Number(guard.max_connections_per_ip) || 64
+      form.sky_max_auth_fails = Number(guard.max_auth_failures) || 20
+      form.sky_auth_window = Number(guard.auth_failure_window_seconds) || 60
+      form.sky_auth_block = Number(guard.auth_block_seconds) || 300
       delete extra.guard
     }
     if (extra.ignore_client_bandwidth !== undefined) {
@@ -1785,7 +1820,6 @@ async function applyWeakNetPreset() {
     return
   }
   if (form.type === 'skyhorse') {
-    form.sky_connections = 4
     form.sky_max_connections = 16
     form.sky_max_streams = 32
     form.sky_port_rotate = 120
@@ -1902,19 +1936,6 @@ async function save() {
   if (form.extra_raw.trim() && !parseRawJSON(form.extra_raw)) {
     ElMessage.error('附加字段必须是合法的 JSON 对象')
     return
-  }
-  if (form.type === 'skyhorse') {
-    const badCIDR = (text: string) => text.split('\n').map((v) => v.trim()).filter(Boolean).find((v) => !isValidCIDR(v))
-    const badDenied = badCIDR(form.sky_denied_cidrs)
-    if (badDenied) {
-      ElMessage.error(`拒绝网段包含非法 CIDR：${badDenied}（格式应为 IP/掩码，例如 1.1.1.0/24）`)
-      return
-    }
-    const badAllowed = badCIDR(form.sky_allowed_cidrs)
-    if (badAllowed) {
-      ElMessage.error(`允许网段包含非法 CIDR：${badAllowed}（格式应为 IP/掩码，例如 1.1.1.0/24）`)
-      return
-    }
   }
   // 非 Shadowsocks 协议强制 TLS：必须具备 Reality 或有效证书
   if (form.type !== 'shadowsocks' && !form.reality_enabled) {

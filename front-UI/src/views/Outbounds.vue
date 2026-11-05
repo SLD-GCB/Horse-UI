@@ -275,22 +275,12 @@
                   </el-form-item>
                 </el-col>
                 <el-col :span="12">
-                  <el-form-item label="初始连接数">
-                    <el-input-number v-model="form.sky_connections" :min="1" style="width: 100%" />
-                  </el-form-item>
-                </el-col>
-                <el-col :span="12">
-                  <el-form-item label="最大连接数">
-                    <el-input-number v-model="form.sky_max_connections" :min="1" style="width: 100%" />
-                  </el-form-item>
-                </el-col>
-                <el-col :span="12">
                   <el-form-item label="单连接流上限">
                     <el-input-number v-model="form.sky_max_streams" :min="1" style="width: 100%" />
                   </el-form-item>
                 </el-col>
                 <el-col :span="12">
-                  <el-form-item label="端口跳跃（秒）">
+                  <el-form-item label="端口轮换间隔（秒）">
                     <el-input-number v-model="form.sky_port_rotate" :min="0" style="width: 100%" />
                   </el-form-item>
                 </el-col>
@@ -307,6 +297,16 @@
                 <el-col :span="12">
                   <el-form-item label="轮换容忍（秒）">
                     <el-input-number v-model="form.sky_obfs_tolerance" :min="0" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="拥塞控制">
+                    <el-select v-model="form.sky_bbr_profile" style="width: 100%">
+                      <el-option label="Brutal（不使用 BBR）" value="" />
+                      <el-option label="standard" value="standard" />
+                      <el-option label="conservative" value="conservative" />
+                      <el-option label="aggressive" value="aggressive" />
+                    </el-select>
                   </el-form-item>
                 </el-col>
               </el-row>
@@ -355,6 +355,11 @@
                   </el-form-item>
                 </el-col>
                 <el-col :span="12">
+                  <el-form-item label="端口轮换（秒）">
+                    <el-input-number v-model="form.fast_port_rotate" :min="0" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
                   <el-form-item label="节点 ID">
                     <el-input v-model="form.fast_node_id" placeholder="hk-01" />
                   </el-form-item>
@@ -387,13 +392,18 @@
                   </el-form-item>
                 </el-col>
                 <el-col :span="12">
-                  <el-form-item label="连接数">
-                    <el-input-number v-model="form.fast_connections" :min="1" style="width: 100%" />
+                  <el-form-item label="单连接流上限">
+                    <el-input-number v-model="form.fast_max_streams" :min="1" style="width: 100%" />
                   </el-form-item>
                 </el-col>
                 <el-col :span="12">
-                  <el-form-item label="单连接流上限">
-                    <el-input-number v-model="form.fast_max_streams" :min="1" style="width: 100%" />
+                  <el-form-item label="上行 Mbps">
+                    <el-input-number v-model="form.fast_up_mbps" :min="0" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="下行 Mbps">
+                    <el-input-number v-model="form.fast_down_mbps" :min="0" style="width: 100%" />
                   </el-form-item>
                 </el-col>
               </el-row>
@@ -830,12 +840,14 @@ function emptyForm() {
     obfs_rotation: 0,
     fast_server_ports: '',
     fast_port_hop_enabled: true,
+    fast_port_rotate: 120,
     fast_node_id: '',
     fast_key_id: 0,
     fast_tolerance: 3600,
     fast_pad_to: 1024,
-    fast_connections: 4,
     fast_max_streams: 32,
+    fast_up_mbps: 0,
+    fast_down_mbps: 0,
     down_mbps: 0,
     congestion_control: '',
     udp_relay_mode: '',
@@ -882,9 +894,9 @@ function emptyForm() {
     dial_timeout: '',
     extraText: '',
 
-    sky_connections: 4,
     sky_max_connections: 16,
     sky_max_streams: 32,
+    sky_bbr_profile: 'standard',
     sky_port_rotate: 120,
     sky_port_hop_enabled: true,
     sky_server_ports: '',
@@ -959,6 +971,7 @@ function buildConfig(): Record<string, unknown> {
       if (skyKeys.length) cfg.obfs_keys = skyKeys
       if (form.up_mbps) cfg.up_mbps = form.up_mbps
       if (form.down_mbps) cfg.down_mbps = form.down_mbps
+      if (form.sky_bbr_profile) cfg.bbr_profile = form.sky_bbr_profile
       break
     }
     case 'fasthorse': {
@@ -966,6 +979,7 @@ function buildConfig(): Record<string, unknown> {
       cfg.password = form.password
       if (form.fast_server_ports) cfg.server_ports = [form.fast_server_ports]
       cfg.port_hop_enabled = !!form.fast_port_hop_enabled
+      if (form.fast_port_rotate > 0) cfg.port_rotate_seconds = form.fast_port_rotate
       const obfs: Record<string, unknown> = { password: form.obfs_password }
       if (form.fast_key_id) obfs.key_id = form.fast_key_id
       if (form.obfs_rotation) obfs.rotation = `${form.obfs_rotation}s`
@@ -973,8 +987,9 @@ function buildConfig(): Record<string, unknown> {
       if (form.fast_pad_to >= 0) obfs.pad_to = form.fast_pad_to
       cfg.obfs = obfs
       if (form.fast_node_id) cfg.gate = { node_id: form.fast_node_id }
-      cfg.connections = form.fast_connections
       cfg.max_streams_per_connection = form.fast_max_streams
+      if (form.fast_up_mbps > 0) cfg.up_mbps = form.fast_up_mbps
+      if (form.fast_down_mbps > 0) cfg.down_mbps = form.fast_down_mbps
       break
     }
     case 'tuic': {
@@ -1089,8 +1104,6 @@ function buildPayload() {
     }
   }
   if (form.type === 'skyhorse') {
-    if (form.sky_connections > 0) extraObj.connections = form.sky_connections
-    if (form.sky_max_connections > 0) extraObj.max_connections = form.sky_max_connections
     if (form.sky_max_streams > 0) extraObj.max_streams_per_connection = form.sky_max_streams
     if (form.sky_port_rotate >= 0) extraObj.port_rotate_seconds = form.sky_port_rotate
     extraObj.port_hop_enabled = !!form.sky_port_hop_enabled
@@ -1184,14 +1197,17 @@ function fillForm(ob: Outbound) {
   }
   form.fast_server_ports = Array.isArray(cfg.server_ports) ? cfg.server_ports.join(',') : ''
   form.fast_port_hop_enabled = cfg.port_hop_enabled !== false
+  form.fast_port_rotate = Number(cfg.port_rotate_seconds) || 120
   form.fast_node_id = cfg.gate?.node_id || ''
   form.fast_key_id = cfg.obfs?.key_id || 0
   form.fast_tolerance = fastSec(cfg.obfs?.tolerance) || 3600
   form.fast_pad_to = cfg.obfs?.pad_to ?? 1024
-  form.fast_connections = cfg.connections || 4
   form.fast_max_streams = cfg.max_streams_per_connection || 32
+  form.fast_up_mbps = Number(cfg.up_mbps) || 0
+  form.fast_down_mbps = Number(cfg.down_mbps) || 0
   form.up_mbps = cfg.up_mbps || 0
   form.down_mbps = cfg.down_mbps || 0
+  form.sky_bbr_profile = String(cfg.bbr_profile || '')
   form.congestion_control = cfg.congestion_control || ''
   form.udp_relay_mode = cfg.udp_relay_mode || ''
   form.zero_rtt_handshake = !!cfg.zero_rtt_handshake
@@ -1271,7 +1287,6 @@ function fillForm(ob: Outbound) {
     extraObj = { ...(ob.extra as Record<string, any>) }
   }
   if (ob.type === 'skyhorse') {
-    if (extraObj.connections) form.sky_connections = Number(extraObj.connections)
     if (extraObj.max_connections) form.sky_max_connections = Number(extraObj.max_connections)
     if (extraObj.max_streams_per_connection) form.sky_max_streams = Number(extraObj.max_streams_per_connection)
     if (extraObj.port_rotate_seconds !== undefined) form.sky_port_rotate = Number(extraObj.port_rotate_seconds)
@@ -1281,7 +1296,6 @@ function fillForm(ob: Outbound) {
     if (Array.isArray(extraObj.obfs_keys)) form.sky_keys_text = extraObj.obfs_keys.map((v: unknown) => String(v)).join('\n')
     if (extraObj.obfs_rotation_seconds !== undefined) form.sky_obfs_rotation = Number(extraObj.obfs_rotation_seconds)
     if (extraObj.obfs_tolerance_seconds !== undefined) form.sky_obfs_tolerance = Number(extraObj.obfs_tolerance_seconds)
-    delete extraObj.connections
     delete extraObj.max_connections
     delete extraObj.max_streams_per_connection
     delete extraObj.port_rotate_seconds

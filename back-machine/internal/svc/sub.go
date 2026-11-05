@@ -598,8 +598,21 @@ func buildSingboxOutbound(server string, ib model.Inbound, cl model.Client) map[
 			if v, ok := extra["server_ports"]; ok {
 				o["server_ports"] = v
 			}
-			if v, ok := extra["connections"]; ok {
-				o["connections"] = v
+			for _, key := range []string{
+				"port_hop_enabled", "port_rotate_seconds",
+				"max_streams_per_connection",
+				"up_mbps", "down_mbps",
+			} {
+				if v, ok := extra[key]; ok {
+					o[key] = v
+				}
+			}
+			if _, ok := o["server_ports"]; !ok {
+				if value, ok := extra["listen_port_range"].(string); ok {
+					if ports := portStrings(value); len(ports) > 0 {
+						o["server_ports"] = ports
+					}
+				}
 			}
 		} else {
 			o["obfs"] = obfs
@@ -617,8 +630,9 @@ func buildSingboxOutbound(server string, ib model.Inbound, cl model.Client) map[
 		if extra := parseObj(ib.Extra); extra != nil {
 			for _, key := range []string{
 				"obfs_rotation_seconds", "obfs_tolerance_seconds",
-				"connections", "max_connections", "max_streams_per_connection",
+				"max_connections", "max_streams_per_connection",
 				"port_rotate_seconds", "port_hop_enabled", "server_ports", "node_id", "obfs_keys",
+				"bbr_profile", "up_mbps", "down_mbps", "ignore_client_bandwidth", "disable_loss_compensation",
 				"prewarm", "transport",
 			} {
 				if v, ok := extra[key]; ok {
