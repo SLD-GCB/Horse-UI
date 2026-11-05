@@ -378,12 +378,12 @@
               <el-row :gutter="12">
                 <el-col :span="12">
                   <el-form-item label="上行 Mbps">
-                    <el-input-number v-model="form.sky_up_mbps" :min="0" style="width: 100%" />
+                    <el-input-number v-model="form.up_mbps" :min="0" style="width: 100%" />
                   </el-form-item>
                 </el-col>
                 <el-col :span="12">
                   <el-form-item label="下行 Mbps">
-                    <el-input-number v-model="form.sky_down_mbps" :min="0" style="width: 100%" />
+                    <el-input-number v-model="form.down_mbps" :min="0" style="width: 100%" />
                   </el-form-item>
                 </el-col>
                 <el-col :span="12">
@@ -394,7 +394,7 @@
                 <el-col :span="12">
                   <el-form-item label="拥塞控制">
                     <el-select v-model="form.sky_bbr_profile" style="width: 100%">
-                      <el-option label="Brutal（不使用 BBR）" value="" />
+                      <el-option label="Brutal（不使用 BBR）" value="brutal" />
                       <el-option label="standard" value="standard" />
                       <el-option label="conservative" value="conservative" />
                       <el-option label="aggressive" value="aggressive" />
@@ -1399,7 +1399,7 @@ function buildExtra(): Record<string, unknown> | null {
       auth_block_seconds: form.sky_auth_block,
     }
     if (form.sky_ignore_bw) e.ignore_client_bandwidth = true
-    if (form.sky_bbr_profile) e.bbr_profile = form.sky_bbr_profile
+    if (form.sky_bbr_profile && form.sky_bbr_profile !== 'brutal') e.bbr_profile = form.sky_bbr_profile
     if (form.sky_disable_loss) e.disable_loss_compensation = true
   }
   if (form.type === 'fasthorse') {
@@ -1454,8 +1454,8 @@ function buildPayload(): Record<string, unknown> {
     sniff: form.sniff,
     method: form.method,
     server_password: form.server_password,
-    up_mbps: form.type === 'skyhorse' ? form.sky_up_mbps : form.up_mbps,
-    down_mbps: form.type === 'skyhorse' ? form.sky_down_mbps : form.down_mbps,
+    up_mbps: form.up_mbps,
+    down_mbps: form.down_mbps,
     obfs_type: form.obfs_type,
     obfs_password: form.obfs_password,
     congestion_control: form.congestion_control,
@@ -1502,10 +1502,8 @@ async function openEdit(row: Inbound) {
   form.sniff = row.sniff
   form.method = row.method || '2022-blake3-aes-128-gcm'
   form.server_password = row.server_password
-  form.up_mbps = row.up_mbps
-  form.down_mbps = row.down_mbps
-  form.sky_up_mbps = row.up_mbps || 0
-  form.sky_down_mbps = row.down_mbps || 0
+  form.up_mbps = Number(row.up_mbps) || 0
+  form.down_mbps = Number(row.down_mbps) || 0
   form.obfs_type = row.obfs_type || 'salamander'
   form.obfs_password = row.obfs_password
   form.congestion_control = row.congestion_control || 'bbr'
@@ -1768,8 +1766,10 @@ async function openEdit(row: Inbound) {
       delete extra.ignore_client_bandwidth
     }
     if (extra.bbr_profile !== undefined) {
-      form.sky_bbr_profile = String(extra.bbr_profile)
+      form.sky_bbr_profile = String(extra.bbr_profile) || 'brutal'
       delete extra.bbr_profile
+    } else {
+      form.sky_bbr_profile = 'brutal'
     }
     if (extra.disable_loss_compensation !== undefined) {
       form.sky_disable_loss = !!extra.disable_loss_compensation

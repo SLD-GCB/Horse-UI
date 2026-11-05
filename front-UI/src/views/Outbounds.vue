@@ -302,7 +302,7 @@
                 <el-col :span="12">
                   <el-form-item label="拥塞控制">
                     <el-select v-model="form.sky_bbr_profile" style="width: 100%">
-                      <el-option label="Brutal（不使用 BBR）" value="" />
+                      <el-option label="Brutal（不使用 BBR）" value="brutal" />
                       <el-option label="standard" value="standard" />
                       <el-option label="conservative" value="conservative" />
                       <el-option label="aggressive" value="aggressive" />
@@ -971,7 +971,7 @@ function buildConfig(): Record<string, unknown> {
       if (skyKeys.length) cfg.obfs_keys = skyKeys
       if (form.up_mbps) cfg.up_mbps = form.up_mbps
       if (form.down_mbps) cfg.down_mbps = form.down_mbps
-      if (form.sky_bbr_profile) cfg.bbr_profile = form.sky_bbr_profile
+      if (form.sky_bbr_profile && form.sky_bbr_profile !== 'brutal') cfg.bbr_profile = form.sky_bbr_profile
       break
     }
     case 'fasthorse': {
@@ -1207,7 +1207,7 @@ function fillForm(ob: Outbound) {
   form.fast_down_mbps = Number(cfg.down_mbps) || 0
   form.up_mbps = cfg.up_mbps || 0
   form.down_mbps = cfg.down_mbps || 0
-  form.sky_bbr_profile = String(cfg.bbr_profile || '')
+  form.sky_bbr_profile = String(cfg.bbr_profile || '') || 'brutal'
   form.congestion_control = cfg.congestion_control || ''
   form.udp_relay_mode = cfg.udp_relay_mode || ''
   form.zero_rtt_handshake = !!cfg.zero_rtt_handshake
