@@ -894,7 +894,6 @@ function emptyForm() {
     dial_timeout: '',
     extraText: '',
 
-    sky_connections: 4,
     sky_max_connections: 16,
     sky_max_streams: 32,
     sky_bbr_profile: 'standard',
@@ -1288,7 +1287,6 @@ function fillForm(ob: Outbound) {
     extraObj = { ...(ob.extra as Record<string, any>) }
   }
   if (ob.type === 'skyhorse') {
-    if (extraObj.connections) form.sky_connections = Number(extraObj.connections)
     if (extraObj.max_connections) form.sky_max_connections = Number(extraObj.max_connections)
     if (extraObj.max_streams_per_connection) form.sky_max_streams = Number(extraObj.max_streams_per_connection)
     if (extraObj.port_rotate_seconds !== undefined) form.sky_port_rotate = Number(extraObj.port_rotate_seconds)
@@ -1298,7 +1296,6 @@ function fillForm(ob: Outbound) {
     if (Array.isArray(extraObj.obfs_keys)) form.sky_keys_text = extraObj.obfs_keys.map((v: unknown) => String(v)).join('\n')
     if (extraObj.obfs_rotation_seconds !== undefined) form.sky_obfs_rotation = Number(extraObj.obfs_rotation_seconds)
     if (extraObj.obfs_tolerance_seconds !== undefined) form.sky_obfs_tolerance = Number(extraObj.obfs_tolerance_seconds)
-    delete extraObj.connections
     delete extraObj.max_connections
     delete extraObj.max_streams_per_connection
     delete extraObj.port_rotate_seconds

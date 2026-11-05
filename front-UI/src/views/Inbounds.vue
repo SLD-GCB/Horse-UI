@@ -1012,7 +1012,6 @@ function defaultForm() {
     sky_obfs_rotation: 300,
     sky_obfs_tolerance: 60,
     sky_keys_text: '',
-    sky_connections: 4,
     sky_max_connections: 16,
     sky_max_streams: 32,
     sky_port_rotate: 120,
@@ -1727,13 +1726,9 @@ async function openEdit(row: Inbound) {
       form.sky_obfs_tolerance = Number(extra.obfs_tolerance_seconds)
       delete extra.obfs_tolerance_seconds
     }
-    if (Array.isArray(extra.obfs_keys)) {
+    if (extra.obfs_keys) {
       form.sky_keys_text = extra.obfs_keys.map((v: unknown) => String(v)).join('\n')
       delete extra.obfs_keys
-    }
-    if (extra.connections !== undefined) {
-      form.sky_connections = Number(extra.connections)
-      delete extra.connections
     }
     if (extra.max_connections !== undefined) {
       form.sky_max_connections = Number(extra.max_connections)
@@ -1825,7 +1820,6 @@ async function applyWeakNetPreset() {
     return
   }
   if (form.type === 'skyhorse') {
-    form.sky_connections = 4
     form.sky_max_connections = 16
     form.sky_max_streams = 32
     form.sky_port_rotate = 120
