@@ -54,6 +54,7 @@ HorseUI遭到流量嗅探和特征抓取检测，面板突然崩溃，而且屡�
 
 - 系统内核参数一键调优（UDP 缓冲 / BBR，可回滚）与全局 BBR 开关
 - Hysteria2 拥塞控制三种模式引导、QUIC 调优字段、TCP Fast Open
+- 天马 BBR / Brutal 可选，快马上行/下行限速，天马/快马流并发上限
 - 行为抹除（全协议多路复用）、UDP 特征抹除、连接数诊断
 
 **运维**
@@ -72,6 +73,38 @@ HorseUI遭到流量嗅探和特征抓取检测，面板突然崩溃，而且屡�
 | TUIC | QUIC + TLS | — | 可选 0-RTT、心跳、拥塞控制 |
 | Hysteria2 | QUIC + TLS | — | 混淆（salamander / gecko）、带宽、Brutal |
 | HTTP | TLS | — | HTTP 代理 |
+| SkyHorse（天马） | QUIC v1 + TLS 1.3 | 原生 QUIC 多流 / DATAGRAM | 第四代，BBR/Brutal，流并发上限 |
+| FastHorse（快马） | TLS 1.3 | TCP + H2 CONNECT | 第二代，单连接多流，上下行限速 |
+
+## 天马第四代 / 快马第二代
+
+面板已经适配两代自研协议，字段可直接配置、随订阅下发。
+
+**天马（SkyHorse）第四代**
+
+- 移除第三代叠加的 smux，恢复 QUIC 原生多流，避免双层复用拖慢单流；
+- `max_streams_per_connection` 由客户端流信号量强制，不再只是透传；
+- 拥塞控制可选：`standard` / `conservative` / `aggressive`，或留空走 Brutal；
+- Brutal 使用 `up_mbps` / `down_mbps`，BBR 忽略这两个值；
+- 端口轮换默认关闭，只有显式开启且端口数大于 1 才执行；
+- TUN 自动排除节点服务器 IP，避免代理流量被 TUN 抓回。
+
+**快马（FastHorse）第二代**
+
+- 从连接池改为单条 H2 连接 + 原生多流；
+- `max_streams_per_connection` 客户端信号量、服务端 H2 并发流同时限制；
+- `up_mbps` 客户端上行限速，`down_mbps` 服务端下行限速；
+- 端口轮换默认关闭，端口段为空或只有一个端口时不轮换；
+- 移除 `connections` / `target_mbps`，不再维护已无意义的连接池字段。
+
+**面板对应字段**
+
+```
+天马入站/出站：端口段、端口轮换、启用端口跳跃、单连接流上限、
+                上行/下行、拥塞控制、BBR/Brutal
+快马入站/出站：端口段、端口轮换、启用端口跳跃、单连接流上限、
+                上行/下行
+```
 
 ## 快速开始
 
