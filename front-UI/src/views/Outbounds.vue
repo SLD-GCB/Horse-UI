@@ -299,6 +299,16 @@
                     <el-input-number v-model="form.sky_obfs_tolerance" :min="0" style="width: 100%" />
                   </el-form-item>
                 </el-col>
+                <el-col :span="12">
+                  <el-form-item label="拥塞控制">
+                    <el-select v-model="form.sky_bbr_profile" style="width: 100%">
+                      <el-option label="Brutal（不使用 BBR）" value="" />
+                      <el-option label="standard" value="standard" />
+                      <el-option label="conservative" value="conservative" />
+                      <el-option label="aggressive" value="aggressive" />
+                    </el-select>
+                  </el-form-item>
+                </el-col>
               </el-row>
               <el-form-item label="端口段">
                 <el-input v-model="form.sky_server_ports" placeholder="20000:20010，逗号分隔" />
@@ -887,6 +897,7 @@ function emptyForm() {
     sky_connections: 4,
     sky_max_connections: 16,
     sky_max_streams: 32,
+    sky_bbr_profile: 'standard',
     sky_port_rotate: 120,
     sky_port_hop_enabled: true,
     sky_server_ports: '',
@@ -961,6 +972,7 @@ function buildConfig(): Record<string, unknown> {
       if (skyKeys.length) cfg.obfs_keys = skyKeys
       if (form.up_mbps) cfg.up_mbps = form.up_mbps
       if (form.down_mbps) cfg.down_mbps = form.down_mbps
+      if (form.sky_bbr_profile) cfg.bbr_profile = form.sky_bbr_profile
       break
     }
     case 'fasthorse': {
@@ -1196,6 +1208,7 @@ function fillForm(ob: Outbound) {
   form.fast_down_mbps = Number(cfg.down_mbps) || 0
   form.up_mbps = cfg.up_mbps || 0
   form.down_mbps = cfg.down_mbps || 0
+  form.sky_bbr_profile = String(cfg.bbr_profile || '')
   form.congestion_control = cfg.congestion_control || ''
   form.udp_relay_mode = cfg.udp_relay_mode || ''
   form.zero_rtt_handshake = !!cfg.zero_rtt_handshake

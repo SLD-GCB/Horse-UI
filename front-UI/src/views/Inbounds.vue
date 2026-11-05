@@ -377,13 +377,24 @@
               </el-row>
               <el-row :gutter="12">
                 <el-col :span="12">
+                  <el-form-item label="上行 Mbps">
+                    <el-input-number v-model="form.sky_up_mbps" :min="0" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                  <el-form-item label="下行 Mbps">
+                    <el-input-number v-model="form.sky_down_mbps" :min="0" style="width: 100%" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="12">
                   <el-form-item label="忽略客户端带宽">
                     <el-switch v-model="form.sky_ignore_bw" />
                   </el-form-item>
                 </el-col>
                 <el-col :span="12">
-                  <el-form-item label="BBR 配置">
+                  <el-form-item label="拥塞控制">
                     <el-select v-model="form.sky_bbr_profile" style="width: 100%">
+                      <el-option label="Brutal（不使用 BBR）" value="" />
                       <el-option label="standard" value="standard" />
                       <el-option label="conservative" value="conservative" />
                       <el-option label="aggressive" value="aggressive" />
@@ -1006,6 +1017,8 @@ function defaultForm() {
     sky_max_streams: 32,
     sky_port_rotate: 120,
     sky_port_hop_enabled: false,
+    sky_up_mbps: 0,
+    sky_down_mbps: 0,
     sky_allow_private: false,
     sky_allow_loopback: false,
     sky_allowed_ports: '',
@@ -1442,8 +1455,8 @@ function buildPayload(): Record<string, unknown> {
     sniff: form.sniff,
     method: form.method,
     server_password: form.server_password,
-    up_mbps: form.up_mbps,
-    down_mbps: form.down_mbps,
+    up_mbps: form.type === 'skyhorse' ? form.sky_up_mbps : form.up_mbps,
+    down_mbps: form.type === 'skyhorse' ? form.sky_down_mbps : form.down_mbps,
     obfs_type: form.obfs_type,
     obfs_password: form.obfs_password,
     congestion_control: form.congestion_control,
@@ -1492,6 +1505,8 @@ async function openEdit(row: Inbound) {
   form.server_password = row.server_password
   form.up_mbps = row.up_mbps
   form.down_mbps = row.down_mbps
+  form.sky_up_mbps = row.up_mbps || 0
+  form.sky_down_mbps = row.down_mbps || 0
   form.obfs_type = row.obfs_type || 'salamander'
   form.obfs_password = row.obfs_password
   form.congestion_control = row.congestion_control || 'bbr'
