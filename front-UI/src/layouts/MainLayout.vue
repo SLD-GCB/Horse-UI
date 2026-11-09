@@ -21,6 +21,9 @@
         <el-menu-item index="/certificates">
           <el-icon><Lock /></el-icon><span>证书管理</span>
         </el-menu-item>
+        <el-menu-item index="/ip-care">
+          <el-icon><Aim /></el-icon><span>IP 养护</span>
+        </el-menu-item>
         <el-menu-item index="/settings">
           <el-icon><Setting /></el-icon><span>面板设置</span>
         </el-menu-item>

@@ -18,6 +18,7 @@ const router = createRouter({
         { path: 'clients', component: () => import('@/views/Clients.vue'), meta: { title: '用户管理' } },
         { path: 'outbounds', component: () => import('@/views/Outbounds.vue'), meta: { title: '出站与转发' } },
         { path: 'certificates', component: () => import('@/views/Certificates.vue'), meta: { title: '证书管理' } },
+        { path: 'ip-care', component: () => import('@/views/IPCare.vue'), meta: { title: 'IP 养护' } },
         { path: 'settings', component: () => import('@/views/Settings.vue'), meta: { title: '面板设置' } },
         { path: 'audit', component: () => import('@/views/Audit.vue'), meta: { title: '审计日志' } },
         { path: 'system', component: () => import('@/views/System.vue'), meta: { title: '系统与内核' } },

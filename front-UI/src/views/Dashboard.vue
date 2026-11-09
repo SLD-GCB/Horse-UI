@@ -54,8 +54,17 @@
             <el-descriptions-item label="系统">{{ info?.os }} / {{ info?.arch }}</el-descriptions-item>
             <el-descriptions-item label="Go 版本">{{ info?.go_version }}</el-descriptions-item>
             <el-descriptions-item label="CPU 核心">{{ info?.cpus }}</el-descriptions-item>
+            <el-descriptions-item label="CPU 使用率">{{ (info?.cpu_percent || 0).toFixed(1) }}%</el-descriptions-item>
             <el-descriptions-item label="面板运行">{{ formatDuration(info?.uptime || 0) }}</el-descriptions-item>
-            <el-descriptions-item label="内存占用">{{ formatBytes(info?.mem_alloc || 0) }}</el-descriptions-item>
+            <el-descriptions-item label="面板内存">{{ formatBytes(info?.mem_alloc || 0) }}</el-descriptions-item>
+            <el-descriptions-item label="系统内存">
+              {{ formatBytes(info?.mem_used || 0) }} / {{ formatBytes(info?.mem_total || 0) }}
+              （{{ (info?.mem_percent || 0).toFixed(1) }}%）
+            </el-descriptions-item>
+            <el-descriptions-item label="磁盘占用">
+              {{ formatBytes(info?.disk_used || 0) }} / {{ formatBytes(info?.disk_total || 0) }}
+              （{{ (info?.disk_percent || 0).toFixed(1) }}%）
+            </el-descriptions-item>
             <el-descriptions-item label="协程数">{{ info?.goroutines }}</el-descriptions-item>
             <el-descriptions-item label="面板版本">{{ info?.version }}</el-descriptions-item>
           </el-descriptions>

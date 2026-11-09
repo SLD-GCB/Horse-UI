@@ -67,4 +67,7 @@ const (
 	// 用户在界面上手动改密后会被清空——bcrypt 哈希无法反解，所以不存原文就查不到。
 	// 该键属于 protectedSettings，不会通过 API 外泄。
 	SettingAdminLastPassword = "admin_last_password"
+
+	// SettingIPCareToken IP 养护专用 API 令牌（HorseBox 使用，等价于只读/检测权限）。
+	SettingIPCareToken = "ipcare_token"
 )

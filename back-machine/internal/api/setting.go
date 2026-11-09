@@ -10,6 +10,7 @@ import (
 var protectedSettings = map[string]bool{
 	model.SettingJWTSecret:         true,
 	model.SettingAdminLastPassword: true,
+	model.SettingIPCareToken:       true,
 }
 
 func (a *App) getSettings(c *gin.Context) {

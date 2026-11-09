@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"io/fs"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
+	"horseui/back-machine/internal/ipcare"
 	"horseui/back-machine/internal/model"
 	"horseui/back-machine/internal/store"
 	"horseui/back-machine/internal/svc"
@@ -36,6 +38,7 @@ type App struct {
 	db       *gorm.DB
 	settings *store.Settings
 	core     *svc.Core
+	ipCare   *ipcare.Service
 	engine   *gin.Engine
 
 	statsMu        sync.Mutex
@@ -92,6 +95,7 @@ func New(opts Options) (*App, error) {
 		db:        db,
 		settings:  settings,
 		core:      svc.NewCore(opts.DataDir, db, settings),
+		ipCare:    ipcare.New(db, opts.DataDir),
 		clashSeen: stats.NewTracker(),
 		pending:   make(map[string]stats.Delta),
 
@@ -140,6 +144,7 @@ func (a *App) Run() error {
 	}
 
 	a.startTasks()
+	a.ipCare.Start(context.Background())
 	return a.startHTTP()
 }
 
@@ -222,6 +227,9 @@ func (a *App) routes() {
 		auth.GET("/ports", a.portPool)
 		auth.GET("/audit", a.listAudit)
 
+		auth.GET("/ip-care/token", a.ipCareTokenInfo)
+		auth.POST("/ip-care/token/rotate", a.ipCareTokenRotate)
+
 		auth.GET("/sys/info", a.sysInfo)
 		auth.GET("/sys/core", a.coreStatus)
 		auth.POST("/sys/core/install", a.coreInstall)
@@ -247,6 +255,18 @@ func (a *App) routes() {
 		auth.POST("/tools/ss-password", a.toolSSPassword)
 		auth.POST("/tools/short-id", a.toolShortID)
 		auth.POST("/tools/password", a.toolPassword)
+	}
+
+	// IP 养护：管理员 JWT 或专用令牌。
+	ipcareAPI := api.Group("/ip-care", a.ipCareAuth())
+	{
+		ipcareAPI.GET("/status", a.ipCareStatus)
+		ipcareAPI.GET("/history", a.ipCareHistory)
+		ipcareAPI.GET("/warm/history", a.ipCareWarmHistory)
+		ipcareAPI.GET("/settings", a.ipCareSettings)
+		ipcareAPI.PUT("/settings", a.ipCareUpdateSettings)
+		ipcareAPI.POST("/check", a.ipCareCheck)
+		ipcareAPI.POST("/warm", a.ipCareWarm)
 	}
 
 	// 订阅分发（无需鉴权）。

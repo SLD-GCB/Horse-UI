@@ -8,6 +8,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/shirou/gopsutil/v4/cpu"
+	"github.com/shirou/gopsutil/v4/disk"
+	"github.com/shirou/gopsutil/v4/mem"
 
 	"horseui/back-machine/internal/model"
 	"horseui/back-machine/internal/sysinfo"
@@ -75,18 +78,40 @@ func (a *App) sysInfo(c *gin.Context) {
 	var ms runtime.MemStats
 	runtime.ReadMemStats(&ms)
 
+	cpuPercent := 0.0
+	if values, err := cpu.Percent(200*time.Millisecond, false); err == nil && len(values) > 0 {
+		cpuPercent = values[0]
+	}
+	memTotal, memUsed, memPercent := uint64(0), uint64(0), 0.0
+	if vm, err := mem.VirtualMemory(); err == nil {
+		memTotal, memUsed, memPercent = vm.Total, vm.Used, vm.UsedPercent
+	}
+	diskTotal, diskUsed, diskPercent := uint64(0), uint64(0), 0.0
+	diskPath := a.opts.DataDir
+	if usage, err := disk.Usage(diskPath); err == nil {
+		diskTotal, diskUsed, diskPercent = usage.Total, usage.Used, usage.UsedPercent
+	}
+
 	info := gin.H{
-		"version":    a.opts.Version,
-		"os":         runtime.GOOS,
-		"arch":       runtime.GOARCH,
-		"go_version": runtime.Version(),
-		"cpus":       runtime.NumCPU(),
-		"uptime":     int64(time.Since(appStartTime).Seconds()),
-		"mem_alloc":  ms.Alloc,
-		"mem_sys":    ms.Sys,
-		"goroutines": runtime.NumGoroutine(),
-		"core":       a.core.Status(c.Request.Context()),
-		"panel":      a.panelAddressInfo(c),
+		"version":      a.opts.Version,
+		"os":           runtime.GOOS,
+		"arch":         runtime.GOARCH,
+		"go_version":   runtime.Version(),
+		"cpus":         runtime.NumCPU(),
+		"uptime":       int64(time.Since(appStartTime).Seconds()),
+		"cpu_percent":  cpuPercent,
+		"mem_alloc":    ms.Alloc,
+		"mem_sys":      ms.Sys,
+		"mem_total":    memTotal,
+		"mem_used":     memUsed,
+		"mem_percent":  memPercent,
+		"disk_path":    diskPath,
+		"disk_total":   diskTotal,
+		"disk_used":    diskUsed,
+		"disk_percent": diskPercent,
+		"goroutines":   runtime.NumGoroutine(),
+		"core":         a.core.Status(c.Request.Context()),
+		"panel":        a.panelAddressInfo(c),
 	}
 	if host, err := os.Hostname(); err == nil {
 		info["hostname"] = host

@@ -95,8 +95,16 @@ export interface SysInfo {
   go_version: string
   cpus: number
   uptime: number
+  cpu_percent: number
   mem_alloc: number
   mem_sys: number
+  mem_total: number
+  mem_used: number
+  mem_percent: number
+  disk_path: string
+  disk_total: number
+  disk_used: number
+  disk_percent: number
   goroutines: number
   hostname?: string
   core: CoreStatus

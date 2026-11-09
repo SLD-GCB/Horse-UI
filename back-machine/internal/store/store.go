@@ -49,5 +49,8 @@ func Migrate(db *gorm.DB) error {
 		&model.Outbound{},
 		&model.Certificate{},
 		&model.AuditLog{},
+		&model.IPCareSettings{},
+		&model.IPCareCheck{},
+		&model.IPCareJob{},
 	)
 }

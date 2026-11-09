@@ -12,7 +12,7 @@ import (
 )
 
 // version 面板版本号，构建时可通过 -ldflags "-X main.version=..." 覆盖。
-var version = "1.0.0-skyhorse-rc30"
+var version = "1.0.0-skyhorse-rc38"
 
 func envOr(key, def string) string {
 	if v := os.Getenv(key); v != "" {
