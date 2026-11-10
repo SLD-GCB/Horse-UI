@@ -83,6 +83,9 @@ func (a *App) probeInbound(ctx context.Context, ib model.Inbound, cl model.Clien
 		tag = "proxy"
 		ob["tag"] = tag
 	}
+	// 面板测速只测入站的主端口，不继承端口段；端口段可能包含尚未监听的端口。
+	delete(ob, "server_ports")
+	ob["server_port"] = ib.Port
 
 	port, err := freeLocalPort()
 	if err != nil {
@@ -150,7 +153,11 @@ func (a *App) probeInbound(ctx context.Context, ib model.Inbound, cl model.Clien
 	start := time.Now()
 	resp, err := client.Get(testURL)
 	if err != nil {
-		return 0, err
+		detail := lastLine(out.String())
+		if detail == "" {
+			return 0, err
+		}
+		return 0, fmt.Errorf("%w（测速客户端：%s）", err, detail)
 	}
 	defer resp.Body.Close()
 	_, _ = io.Copy(io.Discard, resp.Body)

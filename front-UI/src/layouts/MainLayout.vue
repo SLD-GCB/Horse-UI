@@ -24,6 +24,12 @@
         <el-menu-item index="/ip-care">
           <el-icon><Aim /></el-icon><span>IP 养护</span>
         </el-menu-item>
+        <el-menu-item index="/firewall">
+          <el-icon><Grid /></el-icon><span>玄武防火墙</span>
+        </el-menu-item>
+        <el-menu-item index="/attacks">
+          <el-icon><Warning /></el-icon><span>攻击日志</span>
+        </el-menu-item>
         <el-menu-item index="/settings">
           <el-icon><Setting /></el-icon><span>面板设置</span>
         </el-menu-item>

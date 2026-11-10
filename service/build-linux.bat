@@ -30,7 +30,7 @@ if defined VER set VER=%VER: =%
 if not defined VER set "VER=dev"
 
 REM ---------- 前置检查: 安装包要带的东西必须都在 ----------
-for %%F in (service\install.sh service\horseui.service service\README-install.txt) do (
+for %%F in (service\install.sh service\horseui.service service\horseui-fwd.service service\README-install.txt) do (
   if not exist "%%F" (
     echo [错误] 缺少 %%F，无法打包安装包
     goto :fail
@@ -157,6 +157,7 @@ mkdir "%STAGE%\service\dist" 2>nul
 
 copy /y "service\install.sh"         "%STAGE%\service\install.sh"        >nul
 copy /y "service\horseui.service"    "%STAGE%\service\horseui.service"   >nul
+copy /y "service\horseui-fwd.service" "%STAGE%\service\horseui-fwd.service" >nul
 copy /y "service\README-install.txt" "%STAGE%\README-install.txt"        >nul
 copy /y "%OUT%\horseui-linux-%A%"    "%STAGE%\service\dist\horseui-linux-%A%" >nul
 if errorlevel 1 (

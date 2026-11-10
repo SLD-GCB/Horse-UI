@@ -119,6 +119,34 @@ func (a *App) sysInfo(c *gin.Context) {
 	ok(c, info)
 }
 
+func (a *App) appMetrics(c *gin.Context) {
+	cpuPercent := 0.0
+	if values, err := cpu.Percent(200*time.Millisecond, false); err == nil && len(values) > 0 {
+		cpuPercent = values[0]
+	}
+	memTotal, memUsed, memPercent := uint64(0), uint64(0), 0.0
+	if vm, err := mem.VirtualMemory(); err == nil {
+		memTotal, memUsed, memPercent = vm.Total, vm.Used, vm.UsedPercent
+	}
+	diskTotal, diskUsed, diskPercent := uint64(0), uint64(0), 0.0
+	diskPath := a.opts.DataDir
+	if usage, err := disk.Usage(diskPath); err == nil {
+		diskTotal, diskUsed, diskPercent = usage.Total, usage.Used, usage.UsedPercent
+	}
+	ok(c, gin.H{
+		"cpu_percent":  cpuPercent,
+		"cpus":         runtime.NumCPU(),
+		"mem_total":    memTotal,
+		"mem_used":     memUsed,
+		"mem_percent":  memPercent,
+		"disk_path":    diskPath,
+		"disk_total":   diskTotal,
+		"disk_used":    diskUsed,
+		"disk_percent": diskPercent,
+		"uptime":       int64(time.Since(appStartTime).Seconds()),
+	})
+}
+
 func (a *App) coreStatus(c *gin.Context) {
 	ok(c, a.core.Status(c.Request.Context()))
 }

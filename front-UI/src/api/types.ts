@@ -88,8 +88,7 @@ export interface PanelAddress {
   urls: string[] | null
 }
 
-export interface SysInfo {
-  version: string
+export interface SysInfo {  version: string
   os: string
   arch: string
   go_version: string
@@ -253,7 +252,7 @@ export interface AuditPage {
   size: number
 }
 
-/** 单条内核参数的体检结果（系统调优）。 */
+/** 单条内核参数的体检结果（系统调优）�?*/
 export interface TuneItem {
   key: string
   label: string
@@ -266,7 +265,7 @@ export interface TuneItem {
   note: string
 }
 
-/** 系统调优体检 / 应用结果。 */
+/** 系统调优体检 / 应用结果�?*/
 export interface TuneReport {
   supported: boolean
   can_apply: boolean
@@ -279,7 +278,7 @@ export interface TuneReport {
   warnings: string[]
 }
 
-/** 单个来源 IP 的连接统计（连接数诊断）。 */
+/** 单个来源 IP 的连接统计（连接数诊断）�?*/
 export interface ConnRow {
   source_ip: string
   conns: number
@@ -288,7 +287,7 @@ export interface ConnRow {
   top_hosts: string[]
 }
 
-/** 连接数诊断结果。 */
+/** 连接数诊断结果�?*/
 export interface ConnReport {
   supported: boolean
   reason: string
@@ -300,4 +299,82 @@ export interface ConnReport {
   updated_at: string
   users: ConnRow[]
   advice: string
+}
+
+export interface FirewallPort {
+  id: number
+  port: number
+  protocol: string
+  action: string
+  source: string
+  comment: string
+  auto: boolean
+  inbound_id: number
+  protect: boolean
+  enabled: boolean
+  created_at: number
+  updated_at: number
+}
+
+export interface FirewallBan {
+  id: number
+  ip: string
+  reason: string
+  source: string
+  permanent: boolean
+  created_at: number
+}
+
+export interface FirewallStatus {
+  supported: boolean
+  applied: boolean
+  enabled: boolean
+  auto_import: boolean
+  auto_protect: boolean
+  default_policy: string
+  error: string
+  ports: FirewallPort[]
+  bans: FirewallBan[]
+}
+
+export interface PortGuardState {
+  protocol: string
+  port: number
+  current: number
+  baseline: number
+  floor: number
+  limit: number
+  ceiling: number
+  status: string
+}
+
+export interface GuardSnapshot {
+  updated_at: number
+  healthy: boolean
+  running: boolean
+  stale: boolean
+  ports: PortGuardState[]
+}
+
+export interface FirewallAttackSource {
+  id: number
+  ip: string
+  port: number
+  protocol: string
+  count: number
+  first_seen: number
+  last_seen: number
+  banned: boolean
+}
+
+export interface FirewallAttackLog {
+  id: number
+  port: number
+  protocol: string
+  current: number
+  limit: number
+  baseline: number
+  action: string
+  sources: string
+  created_at: number
 }

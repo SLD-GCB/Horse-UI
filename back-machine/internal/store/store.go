@@ -52,5 +52,10 @@ func Migrate(db *gorm.DB) error {
 		&model.IPCareSettings{},
 		&model.IPCareCheck{},
 		&model.IPCareJob{},
+		&model.FirewallSettings{},
+		&model.FirewallPort{},
+		&model.FirewallBan{},
+		&model.FirewallAttackSource{},
+		&model.FirewallAttackLog{},
 	)
 }

@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -15,6 +17,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
+	"horseui/back-machine/internal/firewall"
 	"horseui/back-machine/internal/ipcare"
 	"horseui/back-machine/internal/model"
 	"horseui/back-machine/internal/store"
@@ -39,6 +42,7 @@ type App struct {
 	settings *store.Settings
 	core     *svc.Core
 	ipCare   *ipcare.Service
+	firewall *firewall.Service
 	engine   *gin.Engine
 
 	statsMu        sync.Mutex
@@ -96,6 +100,7 @@ func New(opts Options) (*App, error) {
 		settings:  settings,
 		core:      svc.NewCore(opts.DataDir, db, settings),
 		ipCare:    ipcare.New(db, opts.DataDir),
+		firewall:  firewall.New(db, opts.DataDir),
 		clashSeen: stats.NewTracker(),
 		pending:   make(map[string]stats.Delta),
 
@@ -145,6 +150,11 @@ func (a *App) Run() error {
 
 	a.startTasks()
 	a.ipCare.Start(context.Background())
+	if port := listenPort(a.opts.Listen); port > 0 {
+		_ = a.firewall.EnsurePort(port, "tcp", "面板端口（启动保护）")
+	}
+	_ = a.firewall.EnsurePort(22, "tcp", "SSH（启动保护）")
+	a.firewall.Start(context.Background())
 	return a.startHTTP()
 }
 
@@ -230,6 +240,24 @@ func (a *App) routes() {
 		auth.GET("/ip-care/token", a.ipCareTokenInfo)
 		auth.POST("/ip-care/token/rotate", a.ipCareTokenRotate)
 
+		auth.GET("/firewall/status", a.firewallStatus)
+		auth.GET("/firewall/ports", a.firewallPorts)
+		auth.POST("/firewall/ports", a.firewallCreatePort)
+		auth.POST("/firewall/ports/protect", a.firewallProtectPort)
+		auth.DELETE("/firewall/ports/:id", a.firewallDeletePort)
+		auth.GET("/firewall/bans", a.firewallBans)
+		auth.GET("/firewall/attack-sources", a.firewallAttackSources)
+		auth.GET("/firewall/attack-logs", a.firewallAttackLogs)
+		auth.POST("/firewall/bans", a.firewallBan)
+		auth.DELETE("/firewall/bans/:ip", a.firewallUnban)
+		auth.POST("/firewall/discover", a.firewallDiscover)
+		auth.POST("/firewall/apply", a.firewallApply)
+		auth.POST("/firewall/rollback", a.firewallRollback)
+		auth.POST("/firewall/enabled", a.firewallSetEnabled)
+		auth.POST("/firewall/auto-protect", a.firewallSetAutoProtect)
+		auth.GET("/firewall/logs", a.firewallLogs)
+		auth.GET("/firewall/guard", a.firewallGuardState)
+
 		auth.GET("/sys/info", a.sysInfo)
 		auth.GET("/sys/core", a.coreStatus)
 		auth.POST("/sys/core/install", a.coreInstall)
@@ -267,6 +295,13 @@ func (a *App) routes() {
 		ipcareAPI.PUT("/settings", a.ipCareUpdateSettings)
 		ipcareAPI.POST("/check", a.ipCareCheck)
 		ipcareAPI.POST("/warm", a.ipCareWarm)
+		// HorseBox 只读监控：复用 IP 养护令牌，不开放管理动作。
+		ipcareAPI.GET("/firewall/status", a.firewallStatus)
+		ipcareAPI.GET("/firewall/guard", a.firewallGuardState)
+		ipcareAPI.GET("/firewall/logs", a.firewallLogs)
+		ipcareAPI.GET("/firewall/attack-sources", a.firewallAttackSources)
+		ipcareAPI.GET("/firewall/attack-logs", a.firewallAttackLogs)
+		ipcareAPI.GET("/system/metrics", a.appMetrics)
 	}
 
 	// 订阅分发（无需鉴权）。
@@ -312,4 +347,16 @@ func ensureDataDirs(root string) error {
 		}
 	}
 	return nil
+}
+
+func listenPort(addr string) int {
+	_, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return 0
+	}
+	value, err := strconv.Atoi(port)
+	if err != nil || value <= 0 || value > 65535 {
+		return 0
+	}
+	return value
 }

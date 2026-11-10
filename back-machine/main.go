@@ -12,7 +12,7 @@ import (
 )
 
 // version 面板版本号，构建时可通过 -ldflags "-X main.version=..." 覆盖。
-var version = "1.0.0-skyhorse-rc38"
+var version = "1.0.0-skyhorse-rc39"
 
 func envOr(key, def string) string {
 	if v := os.Getenv(key); v != "" {
@@ -37,8 +37,14 @@ func main() {
 	open := flag.Bool("open", runtime.GOOS == "windows", "启动后自动打开浏览器")
 	menu := flag.Bool("menu", false, "显示管理菜单")
 	run := flag.Bool("run", false, "直接启动面板（不显示菜单）")
+	fwd := flag.Bool("fwd", false, "仅启动玄武防火墙数据面（独立进程）")
 	tune := flag.String("tune", "", "系统调优：detect / apply / revert（供 install.sh 复用）")
 	flag.Parse()
+
+	if *fwd {
+		runFwd(*dataDir, *listen)
+		return
+	}
 
 	// -tune 必须在 useMenu 之前处理：install.sh 是非交互调用，不能掉进菜单。
 	if *tune != "" {

@@ -23,6 +23,14 @@ func (a *App) afterApply(c *gin.Context, payload gin.H) {
 	if err := a.core.Apply(); err != nil {
 		payload["apply_error"] = err.Error()
 	}
+	// 节点保存后，把单端口/端口段同步到防火墙；未启用时只落库，不碰 nftables。
+	if _, err := a.firewall.SyncInbounds(); err != nil {
+		payload["firewall_error"] = err.Error()
+	} else if a.firewall.Enabled() {
+		if err := a.firewall.Apply(); err != nil {
+			payload["firewall_error"] = err.Error()
+		}
+	}
 	ok(c, payload)
 }
 

@@ -12,6 +12,7 @@
 #   HORSEUI_LISTEN   面板监听地址，默认 0.0.0.0:8080
 #   SKIP_FRONTEND    源码构建时设为 1 跳过前端构建
 #   HORSEUI_TUNE     设为 0 跳过系统调优（弱网优化，默认执行，可在面板回滚）
+#   HORSEUI_NFT      设为 0 跳过 nftables 自动安装（玄武防火墙需要）
 #
 set -euo pipefail
 
@@ -19,6 +20,7 @@ APP="horseui"
 INSTALL_DIR="/usr/local/horseui"
 DATA_DIR="/etc/horseui"
 SERVICE_FILE="/etc/systemd/system/${APP}.service"
+FWD_SERVICE_FILE="/etc/systemd/system/${APP}-fwd.service"
 LISTEN="${HORSEUI_LISTEN:-0.0.0.0:8080}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -27,6 +29,49 @@ cd "$ROOT_DIR"
 log()  { echo -e "\033[32m[horseui]\033[0m $*"; }
 warn() { echo -e "\033[33m[horseui]\033[0m $*"; }
 err()  { echo -e "\033[31m[horseui]\033[0m $*" >&2; }
+
+NFT_VERSION=""
+NFT_STATUS="未检测"
+
+# 安装并检查玄武防火墙依赖。失败只警告，不阻断面板安装。
+ensure_nftables() {
+  if [[ "${HORSEUI_NFT:-1}" == "0" ]]; then
+    warn "已跳过 nftables 安装（HORSEUI_NFT=0），玄武防火墙将不可用"
+    NFT_STATUS="已跳过"
+    return
+  fi
+
+  if ! command -v nft >/dev/null 2>&1; then
+    log "未检测到 nftables，尝试安装 ..."
+    if command -v apt-get >/dev/null 2>&1; then
+      apt-get update -qq >/dev/null 2>&1 || true
+      DEBIAN_FRONTEND=noninteractive apt-get install -y nftables >/dev/null 2>&1 || true
+    elif command -v dnf >/dev/null 2>&1; then
+      dnf install -y nftables >/dev/null 2>&1 || true
+    elif command -v yum >/dev/null 2>&1; then
+      yum install -y nftables >/dev/null 2>&1 || true
+    elif command -v apk >/dev/null 2>&1; then
+      apk add --no-cache nftables >/dev/null 2>&1 || true
+    elif command -v pacman >/dev/null 2>&1; then
+      pacman -Sy --noconfirm nftables >/dev/null 2>&1 || true
+    fi
+  fi
+
+  if ! command -v nft >/dev/null 2>&1; then
+    NFT_STATUS="未安装"
+    warn "nftables 未安装，玄武防火墙不可用；可手动安装后重启 horseui-fwd"
+    return
+  fi
+
+  NFT_VERSION="$(nft --version 2>/dev/null | head -n1)"
+  if nft list tables >/dev/null 2>&1; then
+    NFT_STATUS="可用"
+    log "nftables 已就绪：${NFT_VERSION}"
+  else
+    NFT_STATUS="已安装但无权限"
+    warn "nftables 已安装，但当前环境不能读取规则表（容器缺少 NET_ADMIN？）"
+  fi
+}
 
 if [[ "$(id -u)" -ne 0 ]]; then
   err "请使用 root 运行：sudo bash service/install.sh"
@@ -83,6 +128,10 @@ if systemctl is-active --quiet "${APP}.service" 2>/dev/null; then
   log "停止旧服务 ..."
   systemctl stop "${APP}.service" || true
 fi
+if systemctl is-active --quiet "${APP}-fwd.service" 2>/dev/null; then
+  log "停止旧 fwd 服务 ..."
+  systemctl stop "${APP}-fwd.service" || true
+fi
 mv -f "${INSTALL_DIR}/${APP}.new" "${INSTALL_DIR}/${APP}"
 chmod 0755 "${INSTALL_DIR}/${APP}"
 
@@ -131,9 +180,13 @@ if [[ "${HORSEUI_TUNE:-1}" != "0" ]]; then
 fi
 
 # ---------- 3. 安装并启动 systemd 服务 ----------
+ensure_nftables
 log "安装 systemd 服务 ..."
 sed "s#-listen 0.0.0.0:8080#-listen ${LISTEN}#" "$ROOT_DIR/service/${APP}.service" > "$SERVICE_FILE"
+sed "s#-listen 0.0.0.0:8080#-listen ${LISTEN}#" "$ROOT_DIR/service/${APP}-fwd.service" > "$FWD_SERVICE_FILE"
 systemctl daemon-reload
+systemctl enable "${APP}-fwd.service" >/dev/null
+systemctl restart "${APP}-fwd.service"
 systemctl enable "${APP}.service" >/dev/null
 systemctl restart "${APP}.service"
 
@@ -175,6 +228,23 @@ if [[ "$KERNEL_OK" == "1" ]]; then
   log "sing-box 内核：已就位（${DATA_DIR}/bin/sing-box）"
 else
   warn "sing-box 内核：尚未安装，请先到面板「系统与内核」中安装，否则新建入站无法生效"
+fi
+echo
+log "玄武防火墙："
+if command -v nft >/dev/null 2>&1; then
+  log "  nftables：${NFT_STATUS} ${NFT_VERSION}"
+else
+  warn "  nftables：${NFT_STATUS}（玄武不可用）"
+fi
+if systemctl is-active --quiet "${APP}-fwd.service"; then
+  log "  数据面：运行中（${APP}-fwd.service）"
+else
+  warn "  数据面：未运行（${APP}-fwd.service）"
+fi
+if command -v nft >/dev/null 2>&1 && nft list table inet horseui_fw >/dev/null 2>&1; then
+  log "  规则表：已加载（inet horseui_fw）"
+else
+  log "  规则表：未加载（默认关闭，到「玄武防火墙」确认端口后再启用）"
 fi
 echo
 log "节点端口：在「入站管理」新建入站时会自动从端口池分配，记得在防火墙/安全组放行"
