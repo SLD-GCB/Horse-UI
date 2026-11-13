@@ -386,6 +386,7 @@ func (s *Service) SetEnabled(enabled bool) error {
 		return err
 	}
 	if !enabled {
+		s.clearGuardSnapshot()
 		return s.clear()
 	}
 	if _, err := s.SyncInbounds(); err != nil {
@@ -399,7 +400,13 @@ func (s *Service) SetAutoProtect(enabled bool) error {
 	settings := s.settings()
 	settings.AutoProtect = enabled
 	settings.UpdatedAt = time.Now().Unix()
-	return s.db.Save(&settings).Error
+	if err := s.db.Save(&settings).Error; err != nil {
+		return err
+	}
+	if !enabled {
+		s.clearGuardSnapshot()
+	}
+	return nil
 }
 
 // Apply 把数据库状态同步到 nftables。

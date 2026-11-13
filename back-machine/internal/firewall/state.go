@@ -10,14 +10,17 @@ import (
 
 // PortGuardState 单个端口的动态容量快照。
 type PortGuardState struct {
-	Protocol string  `json:"protocol"`
-	Port     int     `json:"port"`
-	Current  int     `json:"current"`
-	Baseline float64 `json:"baseline"`
-	Floor    float64 `json:"floor"`
-	Limit    float64 `json:"limit"`
-	Ceiling  float64 `json:"ceiling"`
-	Status   string  `json:"status"` // normal / watch / closed
+	Protocol  string  `json:"protocol"`
+	Port      int     `json:"port"`
+	Current   int     `json:"current"`
+	Baseline  float64 `json:"baseline"`
+	Floor     float64 `json:"floor"`
+	Limit     float64 `json:"limit"`
+	Ceiling   float64 `json:"ceiling"`
+	Status    string  `json:"status"` // normal / watch / closed
+	ClosedAt  int64   `json:"closed_at,omitempty"`
+	RecoverAt int64   `json:"recover_at,omitempty"`
+	Locked    bool    `json:"locked"`
 }
 
 // GuardSnapshot fwd 自动关端口的实时快照。
@@ -33,7 +36,12 @@ func (s *Service) guardStatePath() string {
 	return filepath.Join(s.dataDir, "fwd-state.json")
 }
 
-func (s *Service) writeGuardSnapshot(healthy bool, states map[string]*portCapacity, tcp, udp map[int]int) {
+// clearGuardSnapshot 删除旧快照，避免防火墙关闭后继续显示关闭前的端口状态。
+func (s *Service) clearGuardSnapshot() {
+	_ = os.Remove(s.guardStatePath())
+}
+
+func (s *Service) writeGuardSnapshot(healthy bool, states map[string]*portCapacity, tcp, udp map[int]int, visible, locked map[string]bool) {
 	snapshot := GuardSnapshot{
 		UpdatedAt: time.Now().Unix(),
 		Healthy:   healthy,
@@ -41,6 +49,9 @@ func (s *Service) writeGuardSnapshot(healthy bool, states map[string]*portCapaci
 		Ports:     make([]PortGuardState, 0, len(states)),
 	}
 	for key, st := range states {
+		if visible != nil && !visible[key] {
+			continue
+		}
 		protocol, port := splitGuardKey(key)
 		if port == 0 {
 			continue
@@ -50,20 +61,29 @@ func (s *Service) writeGuardSnapshot(healthy bool, states map[string]*portCapaci
 			current = udp
 		}
 		status := "normal"
+		closedAt := int64(0)
+		recoverAt := int64(0)
 		if !st.closedAt.IsZero() {
 			status = "closed"
+			closedAt = st.closedAt.Unix()
+			if !locked[key] {
+				recoverAt = st.closedAt.Add(5 * time.Minute).Unix()
+			}
 		} else if st.over > 0 {
 			status = "watch"
 		}
 		snapshot.Ports = append(snapshot.Ports, PortGuardState{
-			Protocol: protocol,
-			Port:     port,
-			Current:  current[port],
-			Baseline: st.baseline,
-			Floor:    st.floor,
-			Limit:    st.limit,
-			Ceiling:  st.ceiling,
-			Status:   status,
+			Protocol:  protocol,
+			Port:      port,
+			Current:   current[port],
+			Baseline:  st.baseline,
+			Floor:     st.floor,
+			Limit:     st.limit,
+			Ceiling:   st.ceiling,
+			Status:    status,
+			ClosedAt:  closedAt,
+			RecoverAt: recoverAt,
+			Locked:    locked[key],
 		})
 	}
 	sort.Slice(snapshot.Ports, func(i, j int) bool {

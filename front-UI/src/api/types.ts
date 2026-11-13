@@ -252,7 +252,7 @@ export interface AuditPage {
   size: number
 }
 
-/** 单条内核参数的体检结果（系统调优）�?*/
+/** 单条内核参数的体检结果（系统调优）。 */
 export interface TuneItem {
   key: string
   label: string
@@ -265,7 +265,7 @@ export interface TuneItem {
   note: string
 }
 
-/** 系统调优体检 / 应用结果�?*/
+/** 系统调优体检 / 应用结果。 */
 export interface TuneReport {
   supported: boolean
   can_apply: boolean
@@ -278,7 +278,7 @@ export interface TuneReport {
   warnings: string[]
 }
 
-/** 单个来源 IP 的连接统计（连接数诊断）�?*/
+/** 单个来源 IP 的连接统计（连接数诊断）。 */
 export interface ConnRow {
   source_ip: string
   conns: number
@@ -287,7 +287,7 @@ export interface ConnRow {
   top_hosts: string[]
 }
 
-/** 连接数诊断结果�?*/
+/** 连接数诊断结果。 */
 export interface ConnReport {
   supported: boolean
   reason: string
@@ -346,6 +346,9 @@ export interface PortGuardState {
   limit: number
   ceiling: number
   status: string
+  closed_at?: number
+  recover_at?: number
+  locked: boolean
 }
 
 export interface GuardSnapshot {
@@ -378,3 +381,4 @@ export interface FirewallAttackLog {
   sources: string
   created_at: number
 }
+

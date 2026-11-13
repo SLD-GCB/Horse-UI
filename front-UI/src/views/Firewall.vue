@@ -76,7 +76,7 @@
           </div>
         </div>
       </template>
-      <el-table :data="guard.ports" size="small" empty-text="暂无活动连接，或 fwd 未运行">
+      <el-table :data="guard.ports" size="small" empty-text="暂无容量数据：防火墙未启用、自动保护未开启，或 fwd 未运行">
         <el-table-column prop="port" label="端口" width="90" />
         <el-table-column label="协议" width="80">
           <template #default="{ row }">
@@ -106,10 +106,22 @@
           <template #default="{ row }">
             <el-tag
               size="small"
-              :type="row.status === 'closed' ? 'danger' : row.status === 'watch' ? 'warning' : 'success'"
+              :type="statusType(row)"
             >
-              {{ row.status === 'closed' ? '已关端口' : row.status === 'watch' ? '观察中' : '正常' }}
+              {{ statusText(row) }}
             </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="关闭时间" width="170">
+          <template #default="{ row }">
+            {{ row.status === 'closed' ? fmtTime(row.closed_at) : '—' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="自动恢复" width="130">
+          <template #default="{ row }">
+            <span :class="row.status === 'closed' && !row.locked ? 'recover' : 'cap'">
+              {{ recoverText(row) }}
+            </span>
           </template>
         </el-table-column>
       </el-table>
@@ -142,7 +154,7 @@
             <span v-else>—</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="300">
+        <el-table-column label="操作" width="380">
           <template #default="{ row }">
             <el-button
               v-if="row.action !== 'allow'"
@@ -160,10 +172,19 @@
               plain
               @click="setAction(row, 'close')"
             >
-              关闭
+              临时关闭
+            </el-button>
+            <el-button
+              v-if="row.action === 'allow' || !row.protect"
+              size="small"
+              type="danger"
+              plain
+              @click="permanentClose(row)"
+            >
+              永久关闭
             </el-button>
             <el-button size="small" @click="toggleProtect(row)">
-              {{ row.protect ? '取消保护' : '保护' }}
+              {{ row.protect ? '解除锁定' : row.action === 'close' ? '锁定关闭' : '锁定开放' }}
             </el-button>
             <el-button size="small" @click="removePort(row)">删除</el-button>
           </template>
@@ -306,7 +327,7 @@
 import { onMounted, onUnmounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { api } from '@/api'
-import type { FirewallAttackSource, FirewallBan, FirewallPort, FirewallStatus, GuardSnapshot } from '@/api/types'
+import type { FirewallAttackSource, FirewallBan, FirewallPort, FirewallStatus, GuardSnapshot, PortGuardState } from '@/api/types'
 
 const status = ref<FirewallStatus>({
   supported: false,
@@ -332,6 +353,8 @@ const guard = ref<GuardSnapshot>({
   ports: [],
 })
 let logTimer: ReturnType<typeof setInterval> | undefined
+let clockTimer: ReturnType<typeof setInterval> | undefined
+const nowTick = ref(Date.now())
 const portForm = reactive({ port: 0, protocol: 'tcp', action: 'allow', comment: '' })
 const banForm = reactive({ ip: '', reason: '', permanent: true })
 const attackSources = ref<FirewallAttackSource[]>([])
@@ -384,6 +407,30 @@ async function loadGuard() {
   guard.value = await api.get<GuardSnapshot>('/api/firewall/guard')
 }
 
+function statusText(row: PortGuardState) {
+  if (row.status === 'closed') return '已关端口'
+  if (row.locked) return '永久开启'
+  if (row.status === 'watch') return '观察中'
+  return row.current === 0 ? '已开启' : '正常'
+}
+
+function statusType(row: PortGuardState) {
+  if (row.status === 'closed') return 'danger'
+  if (row.locked) return 'success'
+  if (row.status === 'watch') return 'warning'
+  return 'success'
+}
+
+function recoverText(row: PortGuardState) {
+  if (row.locked) return row.status === 'closed' ? '永久' : '常开'
+  if (row.status !== 'closed') return '—'
+  if (!row.recover_at) return '永久'
+  const left = row.recover_at * 1000 - nowTick.value
+  if (left <= 0) return '等待恢复'
+  const seconds = Math.ceil(left / 1000)
+  return `${Math.floor(seconds / 60)}分${String(seconds % 60).padStart(2, '0')}秒`
+}
+
 async function toggleEnabled() {
   try {
     await api.post('/api/firewall/enabled', { enabled: status.value.enabled })
@@ -427,7 +474,30 @@ async function setAction(row: FirewallPort, action: string) {
     port: row.port,
     protocol: row.protocol,
     action,
-    comment: action === 'close' ? '手动关闭' : '手动开放',
+    comment: action === 'close' ? '手动关闭（临时）' : '手动开放',
+  })
+  if (action === 'close') {
+    // 临时关闭：解除锁定，让自动策略可以恢复。
+    await api.post('/api/firewall/ports/protect', {
+      port: row.port,
+      protocol: row.protocol,
+      protect: false,
+    })
+  }
+  await load()
+}
+
+async function permanentClose(row: FirewallPort) {
+  await api.post('/api/firewall/ports', {
+    port: row.port,
+    protocol: row.protocol,
+    action: 'close',
+    comment: '手动关闭（永久）',
+  })
+  await api.post('/api/firewall/ports/protect', {
+    port: row.port,
+    protocol: row.protocol,
+    protect: true,
   })
   await load()
 }
@@ -477,9 +547,13 @@ onMounted(() => {
     loadLogs()
     loadGuard()
   }, 5000)
+  clockTimer = setInterval(() => {
+    nowTick.value = Date.now()
+  }, 1000)
 })
 onUnmounted(() => {
   if (logTimer) clearInterval(logTimer)
+  if (clockTimer) clearInterval(clockTimer)
 })
 </script>
 
@@ -505,6 +579,10 @@ onUnmounted(() => {
   color: var(--el-text-color-secondary);
   font-size: 12px;
   font-weight: 400;
+}
+.recover {
+  color: var(--el-color-warning);
+  font-variant-numeric: tabular-nums;
 }
 .stats {
   margin-top: 4px;

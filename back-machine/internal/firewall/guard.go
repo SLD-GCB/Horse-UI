@@ -41,6 +41,7 @@ func (s *Service) guardLoop(ctx context.Context, protected map[int]bool) {
 		case <-ticker.C:
 			settings := s.settings()
 			if !settings.Enabled || !settings.AutoProtect {
+				s.clearGuardSnapshot()
 				continue
 			}
 			tcpCurrent := establishedByPort()
@@ -53,18 +54,43 @@ func (s *Service) guardLoop(ctx context.Context, protected map[int]bool) {
 			}
 			known := make(map[string]bool)
 			protectedByRule := make(map[string]bool)
-			userClosed := make(map[string]bool)
+			allowByRule := make(map[string]bool)
+			closedByRule := make(map[string]bool)
+			now := time.Now()
 			for _, row := range rows {
 				key := guardKey(row.Protocol, row.Port)
 				known[key] = true
 				if row.Protect {
 					protectedByRule[key] = true
 				}
-				if row.Action == "close" && !autoClosed[key] {
-					userClosed[key] = true
+				if row.Action == "allow" {
+					allowByRule[key] = true
+					// 手动开放后清掉自动关闭状态，避免快照仍显示“已关端口”。
+					if st := states[key]; st != nil && !st.closedAt.IsZero() {
+						st.closedAt = time.Time{}
+						st.over = 0
+					}
+					delete(autoClosed, key)
+				}
+				if row.Action == "close" {
+					// 手动关闭和自动关闭都进入恢复计时，由自动保护策略统一决定何时重开。
+					closedByRule[key] = true
+					if states[key] == nil {
+						protocol, port := splitGuardKey(key)
+						if port > 0 {
+							states[key] = newPortCapacity(protocol, 0)
+						}
+					}
+					if st := states[key]; st != nil && st.closedAt.IsZero() {
+						st.closedAt = now
+					}
+					if strings.HasPrefix(row.Comment, "自动：") {
+						autoClosed[key] = true
+					} else {
+						delete(autoClosed, key)
+					}
 				}
 			}
-			now := time.Now()
 			observations := []struct {
 				protocol string
 				current  map[int]int
@@ -76,7 +102,10 @@ func (s *Service) guardLoop(ctx context.Context, protected map[int]bool) {
 				for port, count := range obs.current {
 					key := guardKey(obs.protocol, port)
 					// 只统计防火墙登记过的端口，排除临时出站端口。
-					if port <= 0 || !known[key] || userClosed[key] {
+					if port <= 0 || !known[key] {
+						continue
+					}
+					if st := states[key]; st != nil && !st.closedAt.IsZero() {
 						continue
 					}
 					if protectedByRule[key] || protected[port] {
@@ -102,20 +131,6 @@ func (s *Service) guardLoop(ctx context.Context, protected map[int]bool) {
 					}
 
 					if !st.closedAt.IsZero() {
-						if now.Sub(st.closedAt) < 5*time.Minute {
-							continue
-						}
-						if float64(count) > st.floor*1.2 {
-							continue
-						}
-						if err := s.OpenPort(port, obs.protocol, "自动：容量恢复"); err == nil {
-							delete(autoClosed, key)
-							st.closedAt = time.Time{}
-							st.over = 0
-							st.limit = math.Max(st.floor*2, 2)
-							s.recordAttack(obs.protocol, port, count, st.limit, st.baseline, "reopen", nil)
-							s.logf("auto reopen %s/%d, current=%d limit=%.1f", obs.protocol, port, count, st.limit)
-						}
 						continue
 					}
 
@@ -165,7 +180,62 @@ func (s *Service) guardLoop(ctx context.Context, protected map[int]bool) {
 					}
 				}
 			}
-			s.writeGuardSnapshot(healthy, states, tcpCurrent, udpCurrent)
+			// 手动关闭和自动关闭统一恢复：冷却结束且连接回落后重开。
+			for key, st := range states {
+				if st.closedAt.IsZero() || !known[key] || protectedByRule[key] {
+					continue
+				}
+				protocol, port := splitGuardKey(key)
+				if port <= 0 || now.Sub(st.closedAt) < 5*time.Minute {
+					continue
+				}
+				current := tcpCurrent[port]
+				if protocol == "udp" {
+					current = udpCurrent[port]
+				}
+				if float64(current) > st.floor*1.2 {
+					continue
+				}
+				if err := s.OpenPort(port, protocol, "自动：容量恢复"); err == nil {
+					delete(autoClosed, key)
+					st.closedAt = time.Time{}
+					st.over = 0
+					st.limit = math.Max(st.floor*2, 2)
+					s.recordAttack(protocol, port, current, st.limit, st.baseline, "reopen", nil)
+					s.logf("auto reopen %s/%d, current=%d limit=%.1f", protocol, port, current, st.limit)
+				}
+			}
+			// 允许端口即使当前没有连接，也要出现在容量快照里。
+			for key := range allowByRule {
+				if _, ok := states[key]; !ok {
+					protocol, port := splitGuardKey(key)
+					if port > 0 {
+						states[key] = newPortCapacity(protocol, 0)
+					}
+				}
+			}
+			visible := make(map[string]bool)
+			for key := range allowByRule {
+				visible[key] = true
+			}
+			for key := range closedByRule {
+				visible[key] = true
+			}
+			for key := range autoClosed {
+				visible[key] = true
+			}
+			// 22/面板端口是 fwd 的硬保护端口，也要显示为常开。
+			lockedPorts := make(map[string]bool)
+			for key := range protectedByRule {
+				lockedPorts[key] = true
+			}
+			for port, ok := range protected {
+				if ok {
+					lockedPorts[guardKey("tcp", port)] = true
+					lockedPorts[guardKey("udp", port)] = true
+				}
+			}
+			s.writeGuardSnapshot(healthy, states, tcpCurrent, udpCurrent, visible, lockedPorts)
 		}
 	}
 }

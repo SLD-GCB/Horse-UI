@@ -22,7 +22,7 @@ type FirewallPort struct {
 	Comment   string `gorm:"size:255" json:"comment"`
 	Auto      bool   `json:"auto"`
 	InboundID uint   `gorm:"index" json:"inbound_id"`
-	Protect   bool   `json:"protect"` // 只观察，不自动关
+	Protect   bool   `json:"protect"` // 锁定当前状态：开放则常开，关闭则常关
 	Enabled   bool   `json:"enabled"`
 	CreatedAt int64  `json:"created_at"`
 	UpdatedAt int64  `json:"updated_at"`
