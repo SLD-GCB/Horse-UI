@@ -289,6 +289,7 @@ func (a *App) routes() {
 	ipcareAPI := api.Group("/ip-care", a.ipCareAuth())
 	{
 		ipcareAPI.GET("/status", a.ipCareStatus)
+		ipcareAPI.GET("/usage", a.ipCareUsage)
 		ipcareAPI.GET("/history", a.ipCareHistory)
 		ipcareAPI.GET("/warm/history", a.ipCareWarmHistory)
 		ipcareAPI.GET("/settings", a.ipCareSettings)

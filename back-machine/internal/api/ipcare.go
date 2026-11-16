@@ -146,6 +146,28 @@ func (a *App) ipCareAuth() gin.HandlerFunc {
 	}
 }
 
+// ipCareUsage 用 IP 养护令牌按订阅令牌查询用量，避免客户端保存面板管理员密码。
+func (a *App) ipCareUsage(c *gin.Context) {
+	subToken := strings.TrimSpace(c.Query("sub_token"))
+	if subToken == "" {
+		badRequest(c, "缺少 sub_token")
+		return
+	}
+	var client model.Client
+	if err := a.db.Where("LOWER(sub_token) = ?", strings.ToLower(subToken)).
+		First(&client).Error; err != nil {
+		fail(c, http.StatusNotFound, "没有找到这个订阅对应的用户")
+		return
+	}
+	ok(c, gin.H{
+		"used_bytes":  client.UsedUp + client.UsedDown,
+		"quota_bytes": client.QuotaBytes,
+		"expire_at":   client.ExpireAt,
+		"nodes":       len(a.clientInbounds(client)),
+		"account":     client.Name,
+	})
+}
+
 // ipCareTokenInfo 返回专用令牌。
 func (a *App) ipCareTokenInfo(c *gin.Context) {
 	token, err := a.ensureIPCareToken(false)
