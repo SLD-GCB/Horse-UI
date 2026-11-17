@@ -6,7 +6,9 @@ _**線路與線路之間是沒有任何的差別的，沒有所謂的根本性�
 
 _**这几日一直有攻击者使用多个IP针对于代理服务器进行端口扫描和发起TLS握手，严重拖累面板的允许
 请大家使用这条命令，把日志显示的非本人IP加入玄武防火墙的永久封禁黑名单中
-journalctl -u horseui --since "5 min ago" --no-pager**_
+_**
+
+_**journalctl -u horseui --since "5 min ago" --no-pager**_
 
 一个自建的 **sing-box 单机代理面板**：在浏览器或 HorseBox 客户端里管理协议入站、用户、出站、证书、订阅与内核。
 
