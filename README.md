@@ -203,7 +203,8 @@ arm64:
 ```bash
 unzip horseui-1.0.0-skyhorse-rc43-linux-arm64.zip
 ```
-第四步
+第四步：
+
 解压后执行：
 ```bash
 cd horseui-1.0.0-skyhorse-rc43-linux-amd64&&sudo bash service/install.sh
@@ -213,13 +214,17 @@ cd horseui-1.0.0-skyhorse-rc43-linux-amd64&&sudo bash service/install.sh
 （可用 `HORSEUI_TUNE=0` 跳过）。
 
 默认监听 `0.0.0.0:8080`，面板 HTTPS 默认开启（自签证书），管理员账号 `admin`。
-初始密码随机生成、只在首次启动时打印一次：
+初始密码随机生成、只在首次启动时打印一次,如果检测到弱口令，启动时会**自动重置为随机密码**并打印新的密码（不会把面板锁死），
+之后在终端界面输入以下指令，就会显示选项输入数字后按下Enter键即可运行对应选择：
 
 ```bash
-journalctl -u horseui --no-pager | grep -i 密码
+horseui
 ```
 
-如果检测到弱口令，启动时会**自动重置为随机密码**并打印新的密码（不会把面板锁死）。
+<img width="1616" height="502" alt="image" src="https://github.com/user-attachments/assets/0f5c5e67-a041-4bd3-b362-6f22a833f39b" />
+
+
+
 
 ### 方式二：Windows
 
