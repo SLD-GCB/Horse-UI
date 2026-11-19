@@ -146,14 +146,66 @@ HorseUI遭到流量嗅探和特征抓取检测，面板突然崩溃，而且屡�
                 上行/下行
 ```
 
-## 快速开始
+## 快速开始--安装部署教程
 
 ### 方式一：安装包（Linux）
 
-解压后执行：
+第一步:
+
+安装解压软件包：
 
 ```bash
-sudo bash service/install.sh
+apt install unzip
+```
+
+第二步:
+
+下载对应的系统安装包，x86使用amd64,arm64则用arm64
+<https://github.com/SLD-GCB/Horse-UI/releases/tag/HorseUI-v17.0>
+
+把下载下来的horseui-1.0.0-skyhorse-rc43-linux-amd64.zip或者horseui-1.0.0-skyhorse-rc43-linux-arm64.zip的压缩包传输进服务器此时需要下载专属客户端
+使用这个链接
+
+<https://github.com/SLD-GCB/HorseBox/releases/tag/HorseBox-10.68_win%26HorseBox-10.64_Android%26HorseBox-10.69_Android>
+
+下载windows端的HorseBox，文件名叫HorseBox-10.68-windows-x64.zip，解压到你任意的位置即可，然后进入软件点击扳手图案
+
+<img width="1901" height="762" alt="image" src="https://github.com/user-attachments/assets/fa46f59c-0ef3-41f1-b403-60d306023497" />
+
+然后再点击右上角添加主机按钮，填入你的服务器IP和端口，还有root用户，以及ssh密码：
+
+<img width="592" height="382" alt="屏幕截图 2026-11-19 222045" src="https://github.com/user-attachments/assets/e84d6268-200c-47f3-8030-e2a383159d56" />
+
+此时点击你添加好IP的卡片：
+
+<img width="1918" height="486" alt="image" src="https://github.com/user-attachments/assets/482acdb6-21c2-4f0d-a814-15856b32b5cd" />
+
+再点击右上角第二个图标
+
+<img width="1680" height="563" alt="image" src="https://github.com/user-attachments/assets/73bae96f-f6bf-4eab-8635-051e0f991250" />
+
+进入后再按右上角第一个图标,找到你的horseui-1.0.0-skyhorse-rc43-linux-amd64.zip或者horseui-1.0.0-skyhorse-rc43-linux-arm64.zip的存放位置，选中即可上传
+
+<img width="1688" height="847" alt="image" src="https://github.com/user-attachments/assets/c9d6b64d-9b2c-44cf-99ef-48b288ed3c52" />
+
+
+上传后解压出来
+第三步：
+x86：
+
+```bash
+unzip horseui-1.0.0-skyhorse-rc43-linux-amd64.zip
+```
+
+arm64:
+
+```bash
+unzip horseui-1.0.0-skyhorse-rc43-linux-arm64.zip
+```
+第四步
+解压后执行：
+```bash
+cd horseui-1.0.0-skyhorse-rc43-linux-amd64&&sudo bash service/install.sh
 ```
 
 脚本会安装面板二进制、随包的 sing-box 内核与 systemd 服务，并做一次系统调优
