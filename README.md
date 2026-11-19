@@ -160,7 +160,8 @@ apt install unzip
 
 第二步:
 
-下载对应的系统安装包，x86使用amd64,arm64则用arm64
+下载对应的系统安装包，x86使用amd64,arm64则用arm64，以下是下载地址：
+
 <https://github.com/SLD-GCB/Horse-UI/releases/tag/HorseUI-v17.0>
 
 把下载下来的horseui-1.0.0-skyhorse-rc43-linux-amd64.zip或者horseui-1.0.0-skyhorse-rc43-linux-arm64.zip的压缩包传输进服务器此时需要下载专属客户端
@@ -170,13 +171,13 @@ apt install unzip
 
 下载windows端的HorseBox，文件名叫HorseBox-10.68-windows-x64.zip，解压到你任意的位置即可，然后进入软件点击扳手图案
 
-<img width="1901" height="762" alt="image" src="https://github.com/user-attachments/assets/fa46f59c-0ef3-41f1-b403-60d306023497" />
+<img width="1697" height="698" alt="image" src="https://github.com/user-attachments/assets/807737a2-e2d2-4238-b86c-83f3a4526b18" />
 
-然后再点击右上角添加主机按钮，填入你的服务器IP和端口，还有root用户，以及ssh密码：
+然后再点击右上角添加主机按钮，填入你的服务器IP和端口，还有root用户，以及ssh密码，填好后点击右下角的添加按钮：
 
 <img width="592" height="382" alt="屏幕截图 2026-11-19 222045" src="https://github.com/user-attachments/assets/e84d6268-200c-47f3-8030-e2a383159d56" />
 
-此时点击你添加好IP的卡片，就会进入图片的界面：
+此时就会显示已经添加好的IP卡片点击你添加好IP的卡片，就会进入图片的界面：
 
 <img width="1695" height="387" alt="image" src="https://github.com/user-attachments/assets/7b0e3ae7-5aa8-4ebd-ad10-db700e9662c7" />
 
