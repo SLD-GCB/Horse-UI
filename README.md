@@ -225,6 +225,9 @@ horseui
 
 <img width="1616" height="502" alt="image" src="https://github.com/user-attachments/assets/0f5c5e67-a041-4bd3-b362-6f22a833f39b" />
 
+_**至此，面板部署完毕，请移步至这个页面，向下滚动至使用流程,参照使用流程使用软件**_
+
+**https://github.com/SLD-GCB/HorseBox/blob/main/README.md**
 
 
 ## 首次登录
