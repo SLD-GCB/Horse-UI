@@ -9,7 +9,7 @@ _**这几日一直有攻击者使用集群IP池机器人针对于代理服务器
 
 _**journalctl -u horseui --since "5 min ago" --no-pager**_
 
-一个自建的 **sing-box 单机代理面板**：在浏览器或 HorseBox 客户端里管理协议入站、用户、出站、证书、订阅与内核。
+一个自建的 **sing-box 单机代理面板**：在浏览器或 HorseBox 客户端里管理协议入站、用户、出站、证书、订阅与内核，不支持配置reality,reality伪装度高，特征明显，有幸存者偏差故而不再支持。
 
 面板与 sing-box 跑在同一台机器上，sing-box 作为受管子进程运行，前端资源内嵌在单一二进制里，服务器不需要安装 Go / Node。
 
