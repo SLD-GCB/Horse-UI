@@ -225,12 +225,7 @@ horseui
 
 
 
-
-### 方式二：Windows
-
-双击 `horseui.exe` 进入终端管理菜单，选「启动」即可。首次启动同样会打印面板地址和管理员密码。
-
-### 方式三：源码构建
+### 方式二：源码构建
 
 ```bash
 # 1. 前端（产物写入 back-machine/internal/webui/dist，供 go:embed 使用）
@@ -252,7 +247,7 @@ go build -trimpath -ldflags "-s -w" -o horseui ./back-machine
 
 面板是自签 HTTPS，浏览器第一次打开会提示「不安全」。这时有两条路。
 
-### 推荐：用 HorseBox 客户端登录（不经过浏览器）
+### 必须使用HorseBox 客户端登录（不经过浏览器）
 
 1. 打开 HorseBox →「面板」→「首次登录」
 2. 填 `https://服务器IP:端口`，点「临时连接」
@@ -263,11 +258,6 @@ go build -trimpath -ldflags "-s -w" -o horseui ./back-machine
 7. 回到 HorseBox「订阅」添加订阅：填订阅地址 + 指纹
 
 从这以后，客户端每次 TLS 握手都会比对指纹，证书被替换会直接断开。
-
-### 浏览器登录
-
-直接打开 `https://IP:端口`，在证书警告页选择继续，然后用管理员密码登录。
-浏览器不会做指纹固定，适合临时排障，不建议长期使用。
 
 ## 与 HorseBox 配合
 
