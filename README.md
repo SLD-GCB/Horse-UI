@@ -176,9 +176,9 @@ apt install unzip
 
 <img width="592" height="382" alt="屏幕截图 2026-11-19 222045" src="https://github.com/user-attachments/assets/e84d6268-200c-47f3-8030-e2a383159d56" />
 
-此时点击你添加好IP的卡片：
+此时点击你添加好IP的卡片，就会进入图片的界面：
 
-<img width="1918" height="486" alt="image" src="https://github.com/user-attachments/assets/482acdb6-21c2-4f0d-a814-15856b32b5cd" />
+<img width="1695" height="387" alt="image" src="https://github.com/user-attachments/assets/7b0e3ae7-5aa8-4ebd-ad10-db700e9662c7" />
 
 再点击右上角第二个图标
 
